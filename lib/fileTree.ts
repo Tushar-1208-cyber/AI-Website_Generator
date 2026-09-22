@@ -183,6 +183,58 @@ export function bundleFilesForPreview(filesMap: ProjectFilesMap): string {
     }
   }
 
+  // Inject Mock DB and Fetch API interceptor for backend API calls inside iframe
+  const dbFileKey = Object.keys(filesMap).find((k) => k.endsWith("db.json"));
+  let mockDbRaw = filesMap[dbFileKey || ""] || "{}";
+  try {
+    JSON.parse(mockDbRaw);
+  } catch {
+    mockDbRaw = "{}";
+  }
+
+  const fetchInterceptorScript = `
+  <script>
+    (function () {
+      var mockDb = ${mockDbRaw};
+      var originalFetch = window.fetch;
+      window.fetch = function (url, options) {
+        var strUrl = typeof url === 'string' ? url : (url && url.url ? url.url : '');
+        var method = (options && options.method ? options.method : 'GET').toUpperCase();
+
+        if (strUrl.indexOf('/api/') !== -1 || strUrl.indexOf('localhost') !== -1 || strUrl.indexOf('127.0.0.1') !== -1) {
+          console.log('[Preview Fetch Polyfill]', method, strUrl);
+          var match = strUrl.match(/\\/api\\/([^\\/\\?#]+)/);
+          var key = match ? match[1] : 'products';
+
+          var responseData = mockDb[key] || mockDb.products || mockDb.items || mockDb.tasks || mockDb.users || [];
+          if (typeof responseData === 'string') {
+            try { responseData = JSON.parse(responseData); } catch (e) {}
+          }
+
+          if (method === 'POST') {
+            var bodyObj = {};
+            try { if (options && options.body) bodyObj = JSON.parse(options.body); } catch(e){}
+            responseData = { message: 'Created successfully', id: Date.now(), item: bodyObj };
+          }
+
+          return Promise.resolve(new Response(JSON.stringify(responseData), {
+            status: 200,
+            statusText: 'OK',
+            headers: { 'Content-Type': 'application/json' }
+          }));
+        }
+
+        return originalFetch.apply(this, arguments);
+      };
+    })();
+  </script>`;
+
+  if (bundled.includes("</head>")) {
+    bundled = bundled.replace("</head>", `${fetchInterceptorScript}\n</head>`);
+  } else {
+    bundled = fetchInterceptorScript + "\n" + bundled;
+  }
+
   // Gather all JS files and inject before </body>
   const jsFiles = Object.keys(filesMap).filter((k) => k.endsWith(".js") || k.endsWith(".mjs"));
   if (jsFiles.length > 0) {

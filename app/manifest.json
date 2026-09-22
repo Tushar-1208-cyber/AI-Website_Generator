@@ -1,0 +1,16 @@
+{
+  "name": "AI Website Generator",
+  "short_name": "AI WebGen",
+  "description": "Generate, edit, and export websites using AI",
+  "start_url": "/workspace",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#2563eb",
+  "icons": [
+    {
+      "src": "/logo.svg",
+      "sizes": "any",
+      "type": "image/svg+xml"
+    }
+  ]
+}

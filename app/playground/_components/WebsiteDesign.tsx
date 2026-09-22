@@ -12,9 +12,11 @@ import {
   Redo2,
   FileCode,
   Columns,
+  Server,
 } from "lucide-react";
 import JSZip from "jszip";
 import FileExplorer from "./FileExplorer";
+import ApiConsole from "./ApiConsole";
 import {
   parseMultiFiles,
   serializeMultiFiles,
@@ -130,7 +132,7 @@ function WebsiteDesign({
   onUndo,
   onRedo,
 }: WebsiteDesignProps) {
-  const [activeTab, setActiveTab] = useState<"preview" | "code" | "split">("preview");
+  const [activeTab, setActiveTab] = useState<"preview" | "code" | "split" | "api">("preview");
   const [device, setDevice] = useState<"desktop" | "tablet" | "mobile">("desktop");
   const [selectedFilePath, setSelectedFilePath] = useState<string>("index.html");
 
@@ -368,6 +370,18 @@ function WebsiteDesign({
               <Columns className="size-3.5" />
               Split View
             </button>
+
+            <button
+              onClick={() => setActiveTab("api")}
+              className={`flex items-center gap-1.5 px-3 py-1 rounded-md text-xs font-medium transition-all ${
+                activeTab === "api"
+                  ? "bg-blue-600 text-white shadow-sm"
+                  : "text-slate-400 hover:text-slate-200"
+              }`}
+            >
+              <Server className="size-3.5 text-emerald-400" />
+              API Console
+            </button>
           </div>
 
           {/* Export ZIP */}
@@ -463,6 +477,13 @@ function WebsiteDesign({
                 </div>
               )}
             </div>
+          </div>
+        )}
+
+        {/* API Console View */}
+        {activeTab === "api" && (
+          <div className="flex h-full min-h-0 min-w-0 w-full overflow-hidden">
+            <ApiConsole filesMap={filesMap} />
           </div>
         )}
       </div>

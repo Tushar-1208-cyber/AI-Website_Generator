@@ -1,4 +1,6 @@
-import React, { useState } from 'react';
+"use client";
+
+import React, { useState, useMemo } from "react";
 import {
   Code,
   Monitor,
@@ -9,8 +11,16 @@ import {
   Undo2,
   Redo2,
   FileCode,
-} from 'lucide-react';
-import JSZip from 'jszip';
+  Columns,
+} from "lucide-react";
+import JSZip from "jszip";
+import FileExplorer from "./FileExplorer";
+import {
+  parseMultiFiles,
+  serializeMultiFiles,
+  buildFileTree,
+  bundleFilesForPreview,
+} from "@/lib/fileTree";
 
 interface WebsiteDesignProps {
   generatedCode: string;
@@ -23,202 +33,7 @@ interface WebsiteDesignProps {
   onRedo?: () => void;
 }
 
-type ProjectFile = {
-  path: string;
-  content: string;
-};
-
-function WebsiteDesign({
-  generatedCode,
-  onCodeChange,
-  onCodeCommit,
-  onCommitCodeChange,
-  canUndo,
-  canRedo,
-  onUndo,
-  onRedo,
-}: WebsiteDesignProps) {
-  const [activeTab, setActiveTab] = useState<'preview' | 'code'>('preview');
-  const [device, setDevice] = useState<'desktop' | 'tablet' | 'mobile'>(
-    'desktop'
-  );
-  const [selectedFileName, setSelectedFileName] = useState<string>('index.html');
-
-  const getDeviceWidth = () => {
-    switch (device) {
-      case 'mobile':
-        return 'w-[375px] max-w-full';
-      case 'tablet':
-        return 'w-[768px] max-w-full';
-      case 'desktop':
-      default:
-        return 'w-full max-w-full';
-    }
-  };
-
-  const fixMarkdownUrls = (code: string) => {
-    return code.replace(
-      /\[(https?:\/\/[^\]\s]+)\]\(https?:\/\/[^\)\s]+\)/g,
-      '$1'
-    );
-  };
-
-  const stripFences = (code: string) =>
-    code.replace(/```html/gi, '').replace(/```/g, '').trim();
-
-  const parseProjectFiles = (rawCode: string): ProjectFile[] => {
-    const normalizedCode = rawCode.replace(/\r\n/g, '\n');
-    const marker = /---\s*FILE:\s*([^\r\n]+?)\s*---(?=\s|$)/gi;
-    const matches = Array.from(normalizedCode.matchAll(marker));
-    if (matches.length === 0) return [];
-
-    return matches.map((match, index) => {
-      const start = (match.index ?? 0) + match[0].length;
-      const end = index + 1 < matches.length
-        ? (matches[index + 1].index ?? normalizedCode.length)
-        : normalizedCode.length;
-      const path = match[1].trim().replace(/^[/\\]+/, '').replace(/\\/g, '/');
-      const safePath = path.split('/').filter((part) => part && part !== '..' && part !== '.').join('/');
-      return {
-        path: safePath || `file-${index + 1}.txt`,
-        content: normalizedCode.slice(start, end).replace(/^\s*```[a-z0-9+#-]*\s*/i, '').replace(/\s*```\s*$/i, '').trim(),
-      };
-    });
-  };
-
-  const splitSingleHtmlProject = (rawCode: string): ProjectFile[] => {
-    const html = fixMarkdownUrls(stripFences(rawCode));
-    const styles: string[] = [];
-    const scripts: string[] = [];
-
-    const htmlWithoutStyles = html.replace(
-      /<style(?:\s[^>]*)?>([\s\S]*?)<\/style>/gi,
-      (_match, content: string) => {
-        if (content.trim()) styles.push(content.trim());
-        return '';
-      }
-    );
-
-    const htmlWithoutInlineCode = htmlWithoutStyles.replace(
-      /<script(?:\s[^>]*)?>([\s\S]*?)<\/script>/gi,
-      (match: string, content: string) => {
-        if (/\bsrc\s*=|\btype\s*=\s*["']application\/json["']/i.test(match)) {
-          return match;
-        }
-        if (content.trim()) scripts.push(content.trim());
-        return '';
-      }
-    );
-
-    let indexHtml = htmlWithoutInlineCode.trim();
-    if (styles.length > 0) {
-      const stylesheetLink = '<link rel="stylesheet" href="css/styles.css">';
-      indexHtml = /<\/head>/i.test(indexHtml)
-        ? indexHtml.replace(/<\/head>/i, `${stylesheetLink}\n</head>`)
-        : `${stylesheetLink}\n${indexHtml}`;
-    }
-    if (scripts.length > 0) {
-      const scriptTag = '<script src="js/main.js" defer></script>';
-      indexHtml = /<\/body>/i.test(indexHtml)
-        ? indexHtml.replace(/<\/body>/i, `${scriptTag}\n</body>`)
-        : `${indexHtml}\n${scriptTag}`;
-    }
-
-    const files: ProjectFile[] = [{ path: 'index.html', content: indexHtml }];
-    if (styles.length > 0) {
-      files.push({
-        path: 'css/styles.css',
-        content: styles.join('\n\n/* ---- extracted stylesheet ---- */\n\n'),
-      });
-    }
-    if (scripts.length > 0) {
-      files.push({
-        path: 'js/main.js',
-        content: scripts.join('\n\n/* ---- extracted script ---- */\n\n'),
-      });
-    }
-    return files;
-  };
-
-  const getProjectFiles = (rawCode: string): ProjectFile[] => {
-    const files = parseProjectFiles(rawCode);
-    if (files.length > 0) return files;
-    return splitSingleHtmlProject(rawCode);
-  };
-
-  const projectFiles = getProjectFiles(generatedCode);
-
-  const neutralizePreviewNavigation = (code: string) => {
-    const withoutNavigatingLinks = code.replace(
-      /(<a\b[^>]*\bhref\s*=\s*["'])([^"']*)(["'][^>]*>)/gi,
-      '$1#$3'
-    );
-
-    return withoutNavigatingLinks.replace(
-      /<button\b(?![^>]*\btype\s*=)[^>]*>/gi,
-      (button: string) => button.replace(/^<button/i, '<button type="button"')
-    );
-  };
-
-  const hasPlaygroundShellMarkers = (code: string) => {
-    const structuralMarkers = [
-      /(?:\/|\\)playground(?:\/|\\|[?#"'])/i,
-      /PlaygroundHeader/i,
-      /ChatSection/i,
-      /WebsiteDesign/i,
-      /clerkMiddleware/i,
-      /__next_f/i,
-      /_next\/static/i,
-      /data-nextjs/i,
-    ];
-    if (structuralMarkers.some((marker) => marker.test(code))) {
-      return true;
-    }
-
-    const markers = [
-      /Export\s+ZIP/i,
-      /Preview/i,
-      /\bSave\b/i,
-      /Version/i,
-      /AI\s+Website\s+Generator/i,
-    ];
-    return markers.filter((marker) => marker.test(code)).length >= 3;
-  };
-
-  const extractNestedPreview = (code: string) => {
-    if (hasPlaygroundShellMarkers(code)) {
-      return { code: '', isPlaygroundShell: true };
-    }
-
-    if (typeof DOMParser === 'undefined') {
-      return { code, isPlaygroundShell: false };
-    }
-
-    const document = new DOMParser().parseFromString(code, 'text/html');
-    const bodyText = document.body.textContent || '';
-    const playgroundMarkers = [
-      'Export ZIP',
-      'Preview',
-      'Save',
-      'Version',
-      'AI Website Generator',
-    ];
-    const markerCount = playgroundMarkers.filter((marker) => bodyText.includes(marker)).length;
-
-    if (markerCount >= 3) {
-      const nestedPreview = document.querySelector('iframe[srcdoc]');
-      const nestedSource = nestedPreview?.getAttribute('srcdoc');
-      if (nestedSource?.trim()) {
-        return { code: nestedSource, isPlaygroundShell: false };
-      }
-
-      return { code: '', isPlaygroundShell: true };
-    }
-
-    return { code, isPlaygroundShell: false };
-  };
-
-  const CDN_HEAD = `
+const CDN_HEAD = `
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>AI Generated Website</title>
@@ -254,9 +69,8 @@ function WebsiteDesign({
     img { max-width: 100%; }
   </style>`;
 
-  const PREVIEW_GUARD = `
+const PREVIEW_GUARD = `
   <script>
-    // Polyfill DOMContentLoaded & localStorage safety for iframe srcdoc
     (function () {
       try {
         window.localStorage.getItem('test');
@@ -306,194 +120,188 @@ function WebsiteDesign({
     }, true);
   </script>`;
 
-  const buildPreviewHtml = (rawCode: string) => {
-    if (!rawCode || !rawCode.trim()) return '';
+function WebsiteDesign({
+  generatedCode,
+  onCodeChange,
+  onCodeCommit,
+  onCommitCodeChange,
+  canUndo,
+  canRedo,
+  onUndo,
+  onRedo,
+}: WebsiteDesignProps) {
+  const [activeTab, setActiveTab] = useState<"preview" | "code" | "split">("preview");
+  const [device, setDevice] = useState<"desktop" | "tablet" | "mobile">("desktop");
+  const [selectedFilePath, setSelectedFilePath] = useState<string>("index.html");
 
-    const parsedFiles = parseProjectFiles(rawCode);
-    const previewFile = parsedFiles.find((file) => file.path.toLowerCase() === 'index.html')
-      || parsedFiles.find((file) => file.path.toLowerCase().endsWith('/index.html'))
-      || parsedFiles.find((file) => file.path.toLowerCase().endsWith('.html'));
-
-    let code = stripFences(previewFile?.content || rawCode);
-    code = fixMarkdownUrls(code);
-    code = neutralizePreviewNavigation(code);
-    const normalizedPreview = extractNestedPreview(code);
-    if (normalizedPreview.isPlaygroundShell) {
-      return '';
-    }
-    code = normalizedPreview.code;
-
-    // Clean relative local script/link imports to prevent HTTP 404 console errors in iframe srcdoc
-    code = code.replace(/<link\b[^>]*\bhref\s*=\s*["'](?:\.\/)?(?:css\/)?[^"']+\.css["'][^>]*>/gi, (match) => {
-      if (/cdn|http|fonts\.googleapis/i.test(match)) return match;
-      return '';
-    });
-    code = code.replace(/<script\b[^>]*\bsrc\s*=\s*["'](?:\.\/)?(?:js\/)?[^"']+\.js["'][^>]*\s*>\s*<\/script>/gi, (match) => {
-      if (/cdn|http|chart|font-awesome|flowbite|swiper|tippy|tailwindcss/i.test(match)) return match;
-      return '';
-    });
-
-    if (parsedFiles.length > 0) {
-      const css = parsedFiles
-        .filter((file) => file.path.toLowerCase().endsWith('.css'))
-        .map((file) => file.content)
-        .join('\n');
-      const javascript = parsedFiles
-        .filter((file) => /\.(js|mjs|ts|jsx|tsx)$/i.test(file.path) && !/server|api|database|config/i.test(file.path))
-        .map((file) => file.content)
-        .join('\n');
-
-      if (css) {
-        code = /<\/head>/i.test(code)
-          ? code.replace(/<\/head>/i, `<style>\n${css}\n</style>\n</head>`)
-          : `<style>\n${css}\n</style>\n${code}`;
-      }
-      if (javascript) {
-        code = /<\/body>/i.test(code)
-          ? code.replace(/<\/body>/i, `<script>\n${javascript.replace(/<\/script>/gi, '<\\/script>')}\n</script>\n</body>`)
-          : `${code}\n<script>\n${javascript.replace(/<\/script>/gi, '<\\/script>')}\n</script>`;
-      }
-    }
-
-    const hasFullDocument = /<html[\s>]/i.test(code);
-
-    if (hasFullDocument) {
-      if (!/<!DOCTYPE/i.test(code)) {
-        code = `<!DOCTYPE html>\n${code}`;
-      }
-      if (/<head[\s>]/i.test(code)) {
-        code = code.replace(/(<head[\s>]*>)/i, `$1\n${PREVIEW_GUARD}`);
-      } else {
-        code = code.replace(/(<html[\s>]*>)/i, `$1\n<head>\n${PREVIEW_GUARD}\n</head>`);
-      }
-      return code;
-    }
-
-    return `<!DOCTYPE html>
-<html lang="en">
-<head>
-${PREVIEW_GUARD}
-${CDN_HEAD}
-</head>
-<body>
-${code}
-</body>
-</html>`;
-  };
-
-  const fullHtml = buildPreviewHtml(generatedCode);
-
-  const handleExport = async () => {
-    try {
-      const zip = new JSZip();
-      const files = getProjectFiles(generatedCode);
-      files.forEach((file) => zip.file(file.path, file.content));
-
-      if (!files.some((file) => file.path === 'package.json')) {
-        zip.file('package.json', JSON.stringify({
-          name: 'ai-exported-website',
-          version: '1.0.0',
-          private: true,
-          scripts: { start: 'npx serve .' },
-        }, null, 2));
-      }
-
-      if (!files.some((file) => file.path.toLowerCase() === 'readme.md')) {
-        zip.file('README.md', '# AI Generated Website\n\nOpen index.html or run `npm start`.\n');
-      }
-
-      const content = await zip.generateAsync({
-        type: 'blob',
-      });
-
-      const url = URL.createObjectURL(content);
-
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = 'website-export.zip';
-
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-
-      URL.revokeObjectURL(url);
-    } catch (error) {
-      console.error('Export failed:', error);
+  const getDeviceWidth = () => {
+    switch (device) {
+      case "mobile":
+        return "w-[375px] max-w-full";
+      case "tablet":
+        return "w-[768px] max-w-full";
+      case "desktop":
+      default:
+        return "w-full max-w-full";
     }
   };
+
+  // Parse multi-files map from raw generated text
+  const filesMap = useMemo(() => {
+    return parseMultiFiles(generatedCode);
+  }, [generatedCode]);
+
+  // Build tree representation for explorer
+  const filesTree = useMemo(() => {
+    return buildFileTree(filesMap);
+  }, [filesMap]);
+
+  // Handle active file path fallback if current active file was deleted or not found
+  const activeFilePath = useMemo(() => {
+    if (filesMap[selectedFilePath] !== undefined) return selectedFilePath;
+    const keys = Object.keys(filesMap);
+    if (keys.includes("index.html")) return "index.html";
+    return keys[0] || "index.html";
+  }, [filesMap, selectedFilePath]);
+
+  const activeFileContent = filesMap[activeFilePath] || "";
 
   const handleCommit = (val: string) => {
     if (onCodeCommit) onCodeCommit(val);
     if (onCommitCodeChange) onCommitCodeChange(val);
   };
 
-  // Determine active file for Code Tab
-  const activeFileObj = projectFiles.find((f) => f.path === selectedFileName)
-    || projectFiles.find((f) => f.path.toLowerCase().includes('index.html'))
-    || projectFiles[0];
-
-  const currentCodeValue = activeFileObj ? activeFileObj.content : stripFences(generatedCode);
-
   const handleFileContentChange = (path: string, newContent: string) => {
-    if (projectFiles.length > 0) {
-      const updated = projectFiles.map((f) => f.path === path ? { ...f, content: newContent } : f);
-      const reassembled = updated.map((f) => `--- FILE: ${f.path} ---\n${f.content}`).join('\n\n');
-      onCodeChange?.(reassembled);
-    } else {
-      onCodeChange?.(newContent);
-    }
+    const updatedFilesMap = { ...filesMap, [path]: newContent };
+    const serialized = serializeMultiFiles(updatedFilesMap);
+    onCodeChange?.(serialized);
   };
 
   const handleFileContentCommit = (path: string, newContent: string) => {
-    if (projectFiles.length > 0) {
-      const updated = projectFiles.map((f) => f.path === path ? { ...f, content: newContent } : f);
-      const reassembled = updated.map((f) => `--- FILE: ${f.path} ---\n${f.content}`).join('\n\n');
-      handleCommit(reassembled);
+    const updatedFilesMap = { ...filesMap, [path]: newContent };
+    const serialized = serializeMultiFiles(updatedFilesMap);
+    handleCommit(serialized);
+  };
+
+  const handleAddFile = (newPath: string) => {
+    if (!newPath) return;
+    const updatedFilesMap = { ...filesMap, [newPath]: `/* File: ${newPath} */\n` };
+    const serialized = serializeMultiFiles(updatedFilesMap);
+    setSelectedFilePath(newPath);
+    onCodeChange?.(serialized);
+    handleCommit(serialized);
+  };
+
+  const handleDeleteFile = (pathToDelete: string) => {
+    if (pathToDelete === "index.html") return; // Keep index.html
+    const updatedFilesMap = { ...filesMap };
+    delete updatedFilesMap[pathToDelete];
+    const serialized = serializeMultiFiles(updatedFilesMap);
+    setSelectedFilePath("index.html");
+    onCodeChange?.(serialized);
+    handleCommit(serialized);
+  };
+
+
+
+  const fullHtml = useMemo(() => {
+    let bundled = bundleFilesForPreview(filesMap);
+    if (!bundled || !bundled.trim()) return "";
+
+    if (bundled.includes("</head>")) {
+      bundled = bundled.replace("</head>", `${PREVIEW_GUARD}\n</head>`);
     } else {
-      handleCommit(newContent);
+      bundled = `${PREVIEW_GUARD}\n${bundled}`;
+    }
+
+    if (!/<html[\s>]/i.test(bundled)) {
+      bundled = `<!DOCTYPE html>\n<html lang="en">\n<head>\n${PREVIEW_GUARD}\n${CDN_HEAD}\n</head>\n<body>\n${bundled}\n</body>\n</html>`;
+    }
+
+    return bundled;
+  }, [filesMap]);
+
+  const handleExportZip = async () => {
+    try {
+      const zip = new JSZip();
+      Object.keys(filesMap).forEach((filePath) => {
+        zip.file(filePath, filesMap[filePath]);
+      });
+
+      if (!filesMap["package.json"]) {
+        zip.file(
+          "package.json",
+          JSON.stringify(
+            {
+              name: "ai-exported-website",
+              version: "1.0.0",
+              private: true,
+              scripts: { start: "npx serve ." },
+            },
+            null,
+            2
+          )
+        );
+      }
+
+      if (!filesMap["README.md"]) {
+        zip.file("README.md", "# AI Generated Full-Stack Website\n\nOpen index.html in browser or run `npm start`.\n");
+      }
+
+      const blob = await zip.generateAsync({ type: "blob" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = "fullstack-website-export.zip";
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      console.error("Export zip error:", err);
     }
   };
 
   return (
-    <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden bg-gray-50">
+    <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden bg-slate-900">
       {/* Top Toolbar */}
-      <div className="flex shrink-0 items-center justify-between border-b bg-white p-3">
+      <div className="flex shrink-0 items-center justify-between border-b border-slate-800 bg-slate-950 p-2.5">
         {/* Device Toggles */}
-        <div className="flex items-center gap-1 bg-gray-100 p-1 rounded-lg">
+        <div className="flex items-center gap-1 bg-slate-900 p-1 rounded-lg border border-slate-800">
           <button
-            onClick={() => setDevice('desktop')}
-            disabled={activeTab === 'code'}
+            onClick={() => setDevice("desktop")}
+            disabled={activeTab === "code"}
             title="Desktop"
             className={`p-1.5 rounded-md transition-all ${
-              device === 'desktop' && activeTab === 'preview'
-                ? 'bg-white shadow-sm text-blue-600'
-                : 'text-gray-500 hover:text-gray-700 disabled:opacity-50'
+              device === "desktop" && activeTab !== "code"
+                ? "bg-blue-600 text-white shadow-sm"
+                : "text-slate-400 hover:text-slate-200 disabled:opacity-40"
             }`}
           >
             <Monitor className="size-4" />
           </button>
 
           <button
-            onClick={() => setDevice('tablet')}
-            disabled={activeTab === 'code'}
+            onClick={() => setDevice("tablet")}
+            disabled={activeTab === "code"}
             title="Tablet"
             className={`p-1.5 rounded-md transition-all ${
-              device === 'tablet' && activeTab === 'preview'
-                ? 'bg-white shadow-sm text-blue-600'
-                : 'text-gray-500 hover:text-gray-700 disabled:opacity-50'
+              device === "tablet" && activeTab !== "code"
+                ? "bg-blue-600 text-white shadow-sm"
+                : "text-slate-400 hover:text-slate-200 disabled:opacity-40"
             }`}
           >
             <Tablet className="size-4" />
           </button>
 
           <button
-            onClick={() => setDevice('mobile')}
-            disabled={activeTab === 'code'}
+            onClick={() => setDevice("mobile")}
+            disabled={activeTab === "code"}
             title="Mobile"
             className={`p-1.5 rounded-md transition-all ${
-              device === 'mobile' && activeTab === 'preview'
-                ? 'bg-white shadow-sm text-blue-600'
-                : 'text-gray-500 hover:text-gray-700 disabled:opacity-50'
+              device === "mobile" && activeTab !== "code"
+                ? "bg-blue-600 text-white shadow-sm"
+                : "text-slate-400 hover:text-slate-200 disabled:opacity-40"
             }`}
           >
             <Smartphone className="size-4" />
@@ -508,7 +316,7 @@ ${code}
               onClick={onUndo}
               disabled={!canUndo}
               title="Undo"
-              className="p-1.5 rounded-md text-gray-500 hover:text-gray-800 hover:bg-gray-100 disabled:opacity-30 disabled:hover:bg-transparent transition-all"
+              className="p-1.5 rounded-md text-slate-400 hover:text-slate-100 hover:bg-slate-800 disabled:opacity-30 transition-all"
             >
               <Undo2 className="size-4" />
             </button>
@@ -517,110 +325,144 @@ ${code}
               onClick={onRedo}
               disabled={!canRedo}
               title="Redo"
-              className="p-1.5 rounded-md text-gray-500 hover:text-gray-800 hover:bg-gray-100 disabled:opacity-30 disabled:hover:bg-transparent transition-all"
+              className="p-1.5 rounded-md text-slate-400 hover:text-slate-100 hover:bg-slate-800 disabled:opacity-30 transition-all"
             >
               <Redo2 className="size-4" />
             </button>
           </div>
 
-          {/* Preview / Code */}
-          <div className="flex items-center bg-gray-100 p-1 rounded-lg mr-2">
+          {/* View Modes: Preview | Code | Split */}
+          <div className="flex items-center bg-slate-900 p-1 rounded-lg border border-slate-800">
             <button
-              onClick={() => setActiveTab('preview')}
-              className={`flex items-center gap-2 px-3 py-1.5 rounded-md text-sm transition-all ${
-                activeTab === 'preview'
-                  ? 'bg-white shadow-sm text-gray-900 font-medium'
-                  : 'text-gray-500 hover:text-gray-700'
+              onClick={() => setActiveTab("preview")}
+              className={`flex items-center gap-1.5 px-3 py-1 rounded-md text-xs font-medium transition-all ${
+                activeTab === "preview"
+                  ? "bg-blue-600 text-white shadow-sm"
+                  : "text-slate-400 hover:text-slate-200"
               }`}
             >
-              <Eye className="size-4" />
+              <Eye className="size-3.5" />
               Preview
             </button>
 
             <button
-              onClick={() => setActiveTab('code')}
-              className={`flex items-center gap-2 px-3 py-1.5 rounded-md text-sm transition-all ${
-                activeTab === 'code'
-                  ? 'bg-white shadow-sm text-gray-900 font-medium'
-                  : 'text-gray-500 hover:text-gray-700'
+              onClick={() => setActiveTab("code")}
+              className={`flex items-center gap-1.5 px-3 py-1 rounded-md text-xs font-medium transition-all ${
+                activeTab === "code"
+                  ? "bg-blue-600 text-white shadow-sm"
+                  : "text-slate-400 hover:text-slate-200"
               }`}
             >
-              <Code className="size-4" />
-              Code
+              <Code className="size-3.5" />
+              Explorer & Code
+            </button>
+
+            <button
+              onClick={() => setActiveTab("split")}
+              className={`flex items-center gap-1.5 px-3 py-1 rounded-md text-xs font-medium transition-all ${
+                activeTab === "split"
+                  ? "bg-blue-600 text-white shadow-sm"
+                  : "text-slate-400 hover:text-slate-200"
+              }`}
+            >
+              <Columns className="size-3.5" />
+              Split View
             </button>
           </div>
 
-          {/* Export */}
+          {/* Export ZIP */}
           <button
-            onClick={handleExport}
-            className="flex items-center gap-2 px-3 py-1.5 bg-black text-white text-sm rounded-md hover:bg-black/90 transition-all"
+            onClick={handleExportZip}
+            className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 hover:bg-blue-500 text-white text-xs font-medium rounded-md transition-all shadow-sm"
           >
-            <Download className="size-4" />
+            <Download className="size-3.5" />
             Export ZIP
           </button>
         </div>
       </div>
 
-      {/* Main Content */}
-      <div className="flex min-h-0 min-w-0 flex-1 justify-center overflow-hidden p-4">
-        {activeTab === 'preview' ? (
+      {/* Workspace Content */}
+      <div className="flex min-h-0 min-w-0 flex-1 overflow-hidden bg-slate-950">
+        {/* Code Explorer & Editor View */}
+        {(activeTab === "code" || activeTab === "split") && (
           <div
-            className={`${getDeviceWidth()} flex h-full min-h-0 min-w-0 flex-col overflow-hidden rounded-lg border bg-white shadow-md transition-all duration-300 ease-in-out`}
+            className={`flex min-h-0 min-w-0 flex-1 overflow-hidden ${
+              activeTab === "split" ? "w-1/2 border-r border-slate-800" : "w-full"
+            }`}
           >
-            {fullHtml ? (
-              <iframe
-                key={`${generatedCode.length}-${generatedCode.slice(0, 40)}`}
-                srcDoc={fullHtml}
-                className="block h-full min-h-0 w-full border-none"
-                title="Generated Website Preview"
-                sandbox="allow-scripts allow-same-origin allow-forms"
-              />
-            ) : (
-              <div className="w-full h-full flex flex-col items-center justify-center text-gray-400 gap-2 p-6 text-center">
-                <Eye className="size-8" />
-                <p className="text-sm">
-                  Nothing generated yet. Ask the AI to build something to see the live preview here.
-                </p>
-              </div>
-            )}
-          </div>
-        ) : (
-          <div className="flex h-full min-h-0 min-w-0 w-full flex-col overflow-hidden rounded-lg bg-[#1e1e1e] shadow-md">
-            {/* File Tabs Header */}
-            <div className="flex shrink-0 items-center border-b border-[#404040] bg-[#2d2d2d] px-2 py-1.5 overflow-x-auto gap-1">
-              {projectFiles.length > 0 ? (
-                projectFiles.map((file) => {
-                  const isSelected = activeFileObj ? activeFileObj.path === file.path : file.path.includes('index.html');
+            {/* VS Code File Explorer Sidebar */}
+            <FileExplorer
+              filesTree={filesTree}
+              filesMap={filesMap}
+              activeFilePath={activeFilePath}
+              onSelectFile={(path) => setSelectedFilePath(path)}
+              onAddFile={handleAddFile}
+              onDeleteFile={handleDeleteFile}
+            />
+
+            {/* Code Editor Container */}
+            <div className="flex h-full min-h-0 min-w-0 flex-1 flex-col overflow-hidden bg-slate-950">
+              {/* File Tabs Header */}
+              <div className="flex shrink-0 items-center border-b border-slate-800 bg-slate-900/80 px-2 py-1 overflow-x-auto gap-1">
+                {Object.keys(filesMap).map((filePath) => {
+                  const isSelected = activeFilePath === filePath;
                   return (
                     <button
-                      key={file.path}
-                      onClick={() => setSelectedFileName(file.path)}
+                      key={filePath}
+                      onClick={() => setSelectedFilePath(filePath)}
                       className={`flex items-center gap-1.5 px-3 py-1 rounded text-xs font-mono transition-all ${
                         isSelected
-                          ? 'bg-[#1e1e1e] text-blue-400 font-semibold border-b-2 border-blue-400'
-                          : 'text-gray-400 hover:text-gray-200 hover:bg-[#383838]'
+                          ? "bg-slate-950 text-blue-400 font-semibold border-b-2 border-blue-500"
+                          : "text-slate-400 hover:text-slate-200 hover:bg-slate-800/60"
                       }`}
                     >
                       <FileCode className="size-3.5" />
-                      {file.path}
+                      {filePath}
                     </button>
                   );
-                })
+                })}
+              </div>
+
+              {/* Code Textarea */}
+              <textarea
+                value={activeFileContent}
+                onChange={(e) => handleFileContentChange(activeFilePath, e.target.value)}
+                onBlur={(e) => handleFileContentCommit(activeFilePath, e.target.value)}
+                className="min-h-0 w-full flex-1 resize-none overflow-auto bg-slate-950 p-4 font-mono text-xs text-slate-200 focus:outline-none leading-relaxed"
+                spellCheck={false}
+                placeholder={`// File: ${activeFilePath}`}
+              />
+            </div>
+          </div>
+        )}
+
+        {/* Live Preview View */}
+        {(activeTab === "preview" || activeTab === "split") && (
+          <div
+            className={`flex min-h-0 min-w-0 flex-1 justify-center overflow-hidden p-3 ${
+              activeTab === "split" ? "w-1/2" : "w-full"
+            }`}
+          >
+            <div
+              className={`${getDeviceWidth()} flex h-full min-h-0 min-w-0 flex-col overflow-hidden rounded-lg border border-slate-800 bg-white shadow-xl transition-all duration-300 ease-in-out`}
+            >
+              {fullHtml ? (
+                <iframe
+                  key={`${generatedCode.length}-${generatedCode.slice(0, 30)}`}
+                  srcDoc={fullHtml}
+                  className="block h-full min-h-0 w-full border-none"
+                  title="Generated Website Preview"
+                  sandbox="allow-scripts allow-same-origin allow-forms"
+                />
               ) : (
-                <span className="text-gray-300 text-sm font-mono px-2">
-                  index.html
-                </span>
+                <div className="w-full h-full flex flex-col items-center justify-center text-slate-500 gap-2 p-6 text-center">
+                  <Eye className="size-8 text-slate-600" />
+                  <p className="text-xs">
+                    Nothing generated yet. Ask the AI to build a project to see the live preview here.
+                  </p>
+                </div>
               )}
             </div>
-
-            <textarea
-              value={currentCodeValue}
-              onChange={(e) => handleFileContentChange(activeFileObj ? activeFileObj.path : 'index.html', e.target.value)}
-              onBlur={(e) => handleFileContentCommit(activeFileObj ? activeFileObj.path : 'index.html', e.target.value)}
-              className="min-h-0 w-full flex-1 resize-none overflow-auto bg-transparent p-4 font-mono text-sm text-gray-300 focus:outline-none"
-              spellCheck={false}
-              placeholder="<!-- Code will appear here -->"
-            />
           </div>
         )}
       </div>

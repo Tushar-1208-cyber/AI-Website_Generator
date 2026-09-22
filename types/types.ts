@@ -30,3 +30,17 @@ export interface ChatMessageItem {
   content?: string;
   [key: string]: unknown;
 }
+
+export type FileType = "html" | "css" | "js" | "ts" | "jsx" | "tsx" | "json" | "py" | "md" | "other";
+
+export interface FileTreeNode {
+  id: string;
+  name: string;
+  path: string;
+  isFolder: boolean;
+  type?: FileType;
+  children?: FileTreeNode[];
+  content?: string;
+}
+
+export type ProjectFilesMap = Record<string, string>;

@@ -20,18 +20,18 @@ export default function ContactPage() {
         {/* Contact Options */}
         <div className='grid grid-cols-1 md:grid-cols-3 gap-4 mb-12'>
           <a
-            href='mailto:krishrathi877@gmail.com'
+            href='mailto:support@aiwebsitegenerator.com'
             className='flex flex-col items-center gap-3 p-6 rounded-2xl border border-gray-200 hover:border-blue-400 hover:shadow-md transition-all text-center group'
           >
             <div className='size-12 bg-blue-50 rounded-full flex items-center justify-center group-hover:bg-blue-100'>
               <Mail className='size-5 text-blue-500' />
             </div>
             <h3 className='font-semibold text-gray-800'>Email Us</h3>
-            <p className='text-sm text-gray-500'>krishrathi877@gmail.com</p>
+            <p className='text-sm text-gray-500'>support@aiwebsitegenerator.com</p>
           </a>
 
           <a
-            href='https://github.com/krishrathi1/Ai--Website-Generator-'
+            href='https://github.com/your-username/ai-website-generator'
             target='_blank'
             rel='noopener noreferrer'
             className='flex flex-col items-center gap-3 p-6 rounded-2xl border border-gray-200 hover:border-gray-700 hover:shadow-md transition-all text-center group'
@@ -56,7 +56,7 @@ export default function ContactPage() {
         <div className='bg-gray-50 rounded-2xl p-8 border border-gray-200'>
           <h2 className='text-xl font-semibold text-gray-800 mb-6'>Send a Message</h2>
           <form
-            action='mailto:krishrathi877@gmail.com'
+            action='mailto:support@aiwebsitegenerator.com'
             method='GET'
             className='flex flex-col gap-4'
           >

@@ -56,7 +56,7 @@ A powerful, AI-driven website generator that creates beautiful, responsive websi
 
 1. **Clone the repository**
 ```bash
-git clone https://github.com/krishrathi1/Ai--Website-Generator-.git
+git clone https://github.com/your-username/ai-website-generator.git
 cd ai-website-generator
 ```
 
@@ -212,7 +212,7 @@ This project is private and proprietary.
 
 ## 📧 Support
 
-For support, krishrathi877@gmail.com or open an issue in the repository.
+For support, email support@aiwebsitegenerator.com or open an issue in the repository.
 
 ---
 

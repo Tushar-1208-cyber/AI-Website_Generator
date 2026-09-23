@@ -34,6 +34,7 @@ import TestingAgentModal from "./TestingAgentModal";
 import BrowserAgentDrawer from "./BrowserAgentDrawer";
 import ComponentLibraryModal from "./ComponentLibraryModal";
 import DesignSystemModal from "./DesignSystemModal";
+import ResponsiveAgentModal from "./ResponsiveAgentModal";
 import { insertComponentInstance } from "@/lib/reusableComponentEngine";
 import { indexProject, getRelevantContext } from "@/lib/projectContextEngine";
 import { detectErrors, autoFixErrors } from "@/lib/errorDetectionEngine";
@@ -169,6 +170,7 @@ function WebsiteDesign({
   const [showBrowserDrawer, setShowBrowserDrawer] = useState<boolean>(false);
   const [showComponentModal, setShowComponentModal] = useState<boolean>(false);
   const [showDesignSystemModal, setShowDesignSystemModal] = useState<boolean>(false);
+  const [showResponsiveModal, setShowResponsiveModal] = useState<boolean>(false);
   const [isInspectMode, setIsInspectMode] = useState<boolean>(false);
   const [selectedElementInfo, setSelectedElementInfo] = useState<SelectedElementInfo | null>(null);
   const [isFixingErrors, setIsFixingErrors] = useState<boolean>(false);
@@ -549,6 +551,14 @@ function WebsiteDesign({
               <Palette className="size-3.5 text-pink-400" />
               Design System
             </button>
+
+            <button
+              onClick={() => setShowResponsiveModal(true)}
+              className="flex items-center gap-1.5 px-3 py-1 rounded-md text-xs font-medium text-slate-400 hover:text-slate-200 transition-all"
+            >
+              <Smartphone className="size-3.5 text-cyan-400" />
+              Responsive AI
+            </button>
           </div>
 
           {/* AI Test Suite */}
@@ -828,6 +838,19 @@ function WebsiteDesign({
             const serialized = serializeMultiFiles(updatedMap);
             onCodeChange?.(serialized);
             handleCommit(serialized);
+          }}
+        />
+      )}
+
+      {/* Responsive AI Modal */}
+      {showResponsiveModal && (
+        <ResponsiveAgentModal
+          isOpen={showResponsiveModal}
+          onClose={() => setShowResponsiveModal(false)}
+          htmlCode={activeFileContent || generatedCode}
+          onApplyFixedCode={(fixedHtml) => {
+            handleFileContentChange(activeFilePath, fixedHtml);
+            handleFileContentCommit(activeFilePath, fixedHtml);
           }}
         />
       )}

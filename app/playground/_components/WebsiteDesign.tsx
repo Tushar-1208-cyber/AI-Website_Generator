@@ -25,6 +25,7 @@ import {
   Palette,
   KeyRound,
   Plug,
+  Database,
 } from "lucide-react";
 import FileExplorer from "./FileExplorer";
 import ApiConsole from "./ApiConsole";
@@ -40,6 +41,7 @@ import ResponsiveAgentModal from "./ResponsiveAgentModal";
 import BackendGeneratorModal from "./BackendGeneratorModal";
 import AuthGeneratorModal from "./AuthGeneratorModal";
 import IntegrationsModal from "./IntegrationsModal";
+import DatabaseStudioModal from "./DatabaseStudioModal";
 import { insertComponentInstance } from "@/lib/reusableComponentEngine";
 import { indexProject, getRelevantContext } from "@/lib/projectContextEngine";
 import { detectErrors, autoFixErrors } from "@/lib/errorDetectionEngine";
@@ -179,6 +181,7 @@ function WebsiteDesign({
   const [showBackendModal, setShowBackendModal] = useState<boolean>(false);
   const [showAuthModal, setShowAuthModal] = useState<boolean>(false);
   const [showIntegrationsModal, setShowIntegrationsModal] = useState<boolean>(false);
+  const [showDatabaseModal, setShowDatabaseModal] = useState<boolean>(false);
   const [isInspectMode, setIsInspectMode] = useState<boolean>(false);
   const [selectedElementInfo, setSelectedElementInfo] = useState<SelectedElementInfo | null>(null);
   const [isFixingErrors, setIsFixingErrors] = useState<boolean>(false);
@@ -591,6 +594,14 @@ function WebsiteDesign({
               <Plug className="size-3.5 text-blue-400" />
               Integrations
             </button>
+
+            <button
+              onClick={() => setShowDatabaseModal(true)}
+              className="flex items-center gap-1.5 px-3 py-1 rounded-md text-xs font-medium text-slate-400 hover:text-slate-200 transition-all"
+            >
+              <Database className="size-3.5 text-cyan-400" />
+              Database
+            </button>
           </div>
 
           {/* AI Test Suite */}
@@ -923,6 +934,21 @@ function WebsiteDesign({
           isOpen={showIntegrationsModal}
           onClose={() => setShowIntegrationsModal(false)}
           onApplyIntegration={(updatedFilesMap, addedPath) => {
+            const serialized = serializeMultiFiles(updatedFilesMap);
+            onCodeChange?.(serialized);
+            handleCommit(serialized);
+            setSelectedFilePath(addedPath);
+          }}
+        />
+      )}
+
+      {/* AI Visual Database Studio Modal */}
+      {showDatabaseModal && (
+        <DatabaseStudioModal
+          filesMap={filesMap}
+          isOpen={showDatabaseModal}
+          onClose={() => setShowDatabaseModal(false)}
+          onApplySchema={(updatedFilesMap, addedPath) => {
             const serialized = serializeMultiFiles(updatedFilesMap);
             onCodeChange?.(serialized);
             handleCommit(serialized);

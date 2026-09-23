@@ -31,6 +31,7 @@ import {
   Gauge,
   Share2,
   Brain,
+  Image as ImageIcon,
 } from "lucide-react";
 import FileExplorer from "./FileExplorer";
 import ApiConsole from "./ApiConsole";
@@ -52,6 +53,7 @@ import MultiAgentSwarmModal from "./MultiAgentSwarmModal";
 import PerformanceAuditModal from "./PerformanceAuditModal";
 import CollaborationModal from "./CollaborationModal";
 import ProjectMemoryModal from "./ProjectMemoryModal";
+import ImageToCodeModal from "./ImageToCodeModal";
 import { insertComponentInstance } from "@/lib/reusableComponentEngine";
 import { indexProject, getRelevantContext } from "@/lib/projectContextEngine";
 import { detectErrors, autoFixErrors } from "@/lib/errorDetectionEngine";
@@ -197,6 +199,7 @@ function WebsiteDesign({
   const [showAuditModal, setShowAuditModal] = useState<boolean>(false);
   const [showCollabModal, setShowCollabModal] = useState<boolean>(false);
   const [showMemoryModal, setShowMemoryModal] = useState<boolean>(false);
+  const [showImageToCodeModal, setShowImageToCodeModal] = useState<boolean>(false);
   const [isInspectMode, setIsInspectMode] = useState<boolean>(false);
   const [selectedElementInfo, setSelectedElementInfo] = useState<SelectedElementInfo | null>(null);
   const [isFixingErrors, setIsFixingErrors] = useState<boolean>(false);
@@ -657,6 +660,14 @@ function WebsiteDesign({
               <Brain className="size-3.5 text-pink-400" />
               AI Memory
             </button>
+
+            <button
+              onClick={() => setShowImageToCodeModal(true)}
+              className="flex items-center gap-1.5 px-3 py-1 rounded-md text-xs font-medium text-slate-400 hover:text-slate-200 transition-all"
+            >
+              <ImageIcon className="size-3.5 text-indigo-400" />
+              Image to Code
+            </button>
           </div>
 
           {/* AI Test Suite */}
@@ -1068,6 +1079,18 @@ function WebsiteDesign({
         <ProjectMemoryModal
           isOpen={showMemoryModal}
           onClose={() => setShowMemoryModal(false)}
+        />
+      )}
+
+      {/* AI Screenshot & Figma Image-to-Code Modal */}
+      {showImageToCodeModal && (
+        <ImageToCodeModal
+          isOpen={showImageToCodeModal}
+          onClose={() => setShowImageToCodeModal(false)}
+          onApplyGeneratedCode={(htmlCode) => {
+            handleFileContentChange(activeFilePath, htmlCode);
+            handleFileContentCommit(activeFilePath, htmlCode);
+          }}
         />
       )}
 

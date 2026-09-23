@@ -30,6 +30,7 @@ import {
   Users,
   Gauge,
   Share2,
+  Brain,
 } from "lucide-react";
 import FileExplorer from "./FileExplorer";
 import ApiConsole from "./ApiConsole";
@@ -50,6 +51,7 @@ import GitVersionModal from "./GitVersionModal";
 import MultiAgentSwarmModal from "./MultiAgentSwarmModal";
 import PerformanceAuditModal from "./PerformanceAuditModal";
 import CollaborationModal from "./CollaborationModal";
+import ProjectMemoryModal from "./ProjectMemoryModal";
 import { insertComponentInstance } from "@/lib/reusableComponentEngine";
 import { indexProject, getRelevantContext } from "@/lib/projectContextEngine";
 import { detectErrors, autoFixErrors } from "@/lib/errorDetectionEngine";
@@ -194,6 +196,7 @@ function WebsiteDesign({
   const [showSwarmModal, setShowSwarmModal] = useState<boolean>(false);
   const [showAuditModal, setShowAuditModal] = useState<boolean>(false);
   const [showCollabModal, setShowCollabModal] = useState<boolean>(false);
+  const [showMemoryModal, setShowMemoryModal] = useState<boolean>(false);
   const [isInspectMode, setIsInspectMode] = useState<boolean>(false);
   const [selectedElementInfo, setSelectedElementInfo] = useState<SelectedElementInfo | null>(null);
   const [isFixingErrors, setIsFixingErrors] = useState<boolean>(false);
@@ -646,6 +649,14 @@ function WebsiteDesign({
               <Share2 className="size-3.5 text-blue-400" />
               Live Share
             </button>
+
+            <button
+              onClick={() => setShowMemoryModal(true)}
+              className="flex items-center gap-1.5 px-3 py-1 rounded-md text-xs font-medium text-slate-400 hover:text-slate-200 transition-all"
+            >
+              <Brain className="size-3.5 text-pink-400" />
+              AI Memory
+            </button>
           </div>
 
           {/* AI Test Suite */}
@@ -1049,6 +1060,14 @@ function WebsiteDesign({
           filesMap={filesMap}
           isOpen={showCollabModal}
           onClose={() => setShowCollabModal(false)}
+        />
+      )}
+
+      {/* Long-Term AI Project Memory Modal */}
+      {showMemoryModal && (
+        <ProjectMemoryModal
+          isOpen={showMemoryModal}
+          onClose={() => setShowMemoryModal(false)}
         />
       )}
 

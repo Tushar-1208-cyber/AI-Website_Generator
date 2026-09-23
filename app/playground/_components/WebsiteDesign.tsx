@@ -20,6 +20,7 @@ import {
   Rocket,
   Layers,
   FlaskConical,
+  Globe,
 } from "lucide-react";
 import FileExplorer from "./FileExplorer";
 import ApiConsole from "./ApiConsole";
@@ -28,6 +29,7 @@ import DeployModal from "./DeployModal";
 import ProjectContextPanel from "./ProjectContextPanel";
 import ErrorMonitorBanner from "./ErrorMonitorBanner";
 import TestingAgentModal from "./TestingAgentModal";
+import BrowserAgentDrawer from "./BrowserAgentDrawer";
 import { indexProject, getRelevantContext } from "@/lib/projectContextEngine";
 import { detectErrors, autoFixErrors } from "@/lib/errorDetectionEngine";
 import {
@@ -159,6 +161,7 @@ function WebsiteDesign({
   const [showExportModal, setShowExportModal] = useState<boolean>(false);
   const [showDeployModal, setShowDeployModal] = useState<boolean>(false);
   const [showTestModal, setShowTestModal] = useState<boolean>(false);
+  const [showBrowserDrawer, setShowBrowserDrawer] = useState<boolean>(false);
   const [isInspectMode, setIsInspectMode] = useState<boolean>(false);
   const [selectedElementInfo, setSelectedElementInfo] = useState<SelectedElementInfo | null>(null);
   const [isFixingErrors, setIsFixingErrors] = useState<boolean>(false);
@@ -446,6 +449,20 @@ function WebsiteDesign({
               <Crosshair className="size-3.5" />
               <span className="hidden lg:inline">{isInspectMode ? "Inspecting" : "Inspect"}</span>
             </button>
+
+            {/* AI Browser Agent Drawer Toggle */}
+            <button
+              onClick={() => setShowBrowserDrawer(!showBrowserDrawer)}
+              title="Toggle AI Browser Agent Simulation"
+              className={`flex items-center gap-1 px-2 py-1 rounded-md text-xs font-medium transition-all ${
+                showBrowserDrawer
+                  ? "bg-indigo-600 text-white shadow-sm"
+                  : "text-slate-400 hover:text-slate-200 hover:bg-slate-800"
+              }`}
+            >
+              <Globe className="size-3.5 text-indigo-400" />
+              <span className="hidden lg:inline">Browser</span>
+            </button>
           </div>
 
           {/* View Modes: Preview | Code | Split */}
@@ -730,6 +747,15 @@ function WebsiteDesign({
             // Trigger commit/prompt handler
             onCommitCodeChange?.(prompt);
           }}
+        />
+      )}
+
+      {/* AI Browser Agent Drawer */}
+      {showBrowserDrawer && (
+        <BrowserAgentDrawer
+          filesMap={filesMap}
+          activePage={activePreviewPage}
+          onClose={() => setShowBrowserDrawer(false)}
         />
       )}
 

@@ -17,10 +17,12 @@ import {
   X,
   Zap,
   Crosshair,
+  Rocket,
 } from "lucide-react";
 import FileExplorer from "./FileExplorer";
 import ApiConsole from "./ApiConsole";
 import ElementInspectorDrawer from "./ElementInspectorDrawer";
+import DeployModal from "./DeployModal";
 import {
   parseMultiFiles,
   serializeMultiFiles,
@@ -148,6 +150,7 @@ function WebsiteDesign({
   const [selectedFilePath, setSelectedFilePath] = useState<string>("index.html");
   const [activePreviewPage, setActivePreviewPage] = useState<string>("index.html");
   const [showExportModal, setShowExportModal] = useState<boolean>(false);
+  const [showDeployModal, setShowDeployModal] = useState<boolean>(false);
   const [isInspectMode, setIsInspectMode] = useState<boolean>(false);
   const [selectedElementInfo, setSelectedElementInfo] = useState<SelectedElementInfo | null>(null);
 
@@ -462,10 +465,19 @@ function WebsiteDesign({
           {/* Export ZIP */}
           <button
             onClick={handleExportZip}
-            className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 hover:bg-blue-500 text-white text-xs font-medium rounded-md transition-all shadow-sm"
+            className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-medium rounded-md transition-all shadow-sm border border-slate-700"
           >
             <Download className="size-3.5" />
             Export ZIP
+          </button>
+
+          {/* Live Deploy */}
+          <button
+            onClick={() => setShowDeployModal(true)}
+            className="flex items-center gap-1.5 px-3.5 py-1.5 bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 hover:from-blue-500 hover:to-purple-500 text-white text-xs font-semibold rounded-md transition-all shadow-md shadow-blue-500/25"
+          >
+            <Rocket className="size-3.5" />
+            Live Deploy
           </button>
         </div>
       </div>
@@ -649,6 +661,15 @@ function WebsiteDesign({
             // Trigger commit/prompt handler
             onCommitCodeChange?.(prompt);
           }}
+        />
+      )}
+
+      {/* Deploy Modal */}
+      {showDeployModal && (
+        <DeployModal
+          projectId={activePreviewPage}
+          filesCount={Object.keys(filesMap).length}
+          onClose={() => setShowDeployModal(false)}
         />
       )}
     </div>

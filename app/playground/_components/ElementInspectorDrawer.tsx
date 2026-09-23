@@ -2,7 +2,9 @@
 
 import React, { useState } from "react";
 import { SelectedElementInfo } from "@/lib/elementInspector";
-import { Crosshair, X, Send, Tag } from "lucide-react";
+import { Crosshair, X, Send, Tag, Sliders, Sparkles } from "lucide-react";
+import VisualBuilderPanel from "./VisualBuilderPanel";
+import { VisualElementStyles, buildTailwindClasses } from "@/lib/visualBuilderEngine";
 
 interface ElementInspectorDrawerProps {
   selectedElement: SelectedElementInfo;
@@ -15,6 +17,7 @@ export default function ElementInspectorDrawer({
   onClose,
   onSubmitPrompt,
 }: ElementInspectorDrawerProps) {
+  const [activeTab, setActiveTab] = useState<"ai" | "visual">("ai");
   const [promptInput, setPromptInput] = useState<string>("");
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -31,8 +34,14 @@ export default function ElementInspectorDrawer({
     onSubmitPrompt(fullPrompt);
   };
 
+  const handleApplyVisualStyles = (styles: VisualElementStyles) => {
+    const tailwindClasses = buildTailwindClasses(styles, selectedElement.className);
+    const fullPrompt = `Update the <${selectedElement.tagName}> element's CSS classes to: "${tailwindClasses}"`;
+    onSubmitPrompt(fullPrompt);
+  };
+
   return (
-    <div className="fixed bottom-6 right-6 z-50 w-80 md:w-96 bg-slate-900 border border-slate-800 rounded-2xl shadow-2xl p-4 text-slate-100 font-sans animate-in slide-in-from-bottom-5 duration-200">
+    <div className="fixed bottom-6 right-6 z-50 w-80 md:w-96 max-h-[80vh] overflow-y-auto bg-slate-900 border border-slate-800 rounded-3xl shadow-2xl p-4 text-slate-100 font-sans animate-in slide-in-from-bottom-5 duration-200 scrollbar-thin scrollbar-thumb-slate-800">
       {/* Header */}
       <div className="flex items-center justify-between pb-2 mb-3 border-b border-slate-800">
         <div className="flex items-center gap-2">
@@ -65,49 +74,87 @@ export default function ElementInspectorDrawer({
         </p>
       </div>
 
-      {/* Quick Modification Pills */}
-      <div className="flex items-center gap-1.5 overflow-x-auto mb-3 pb-1 scrollbar-none">
+      {/* Mode Switcher Tabs */}
+      <div className="flex items-center bg-slate-950 p-1 rounded-xl border border-slate-800 mb-3">
         <button
           type="button"
-          onClick={() => handleQuickPreset("Make this element a glowing gradient background with rounded corners.")}
-          className="text-[10px] font-medium bg-slate-800 hover:bg-blue-600 hover:text-white text-slate-300 px-2.5 py-1 rounded-lg transition-all shrink-0 border border-slate-700/80"
+          onClick={() => setActiveTab("ai")}
+          className={`flex-1 py-1 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-1 ${
+            activeTab === "ai"
+              ? "bg-blue-600 text-white shadow-xs"
+              : "text-slate-400 hover:text-slate-200"
+          }`}
         >
-          ✨ Gradient Style
+          <Sparkles className="size-3" /> AI Prompt
         </button>
+
         <button
           type="button"
-          onClick={() => handleQuickPreset("Increase font size and make text extra bold.")}
-          className="text-[10px] font-medium bg-slate-800 hover:bg-blue-600 hover:text-white text-slate-300 px-2.5 py-1 rounded-lg transition-all shrink-0 border border-slate-700/80"
+          onClick={() => setActiveTab("visual")}
+          className={`flex-1 py-1 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-1 ${
+            activeTab === "visual"
+              ? "bg-blue-600 text-white shadow-xs"
+              : "text-slate-400 hover:text-slate-200"
+          }`}
         >
-          🔤 Bigger Text
-        </button>
-        <button
-          type="button"
-          onClick={() => handleQuickPreset("Add a drop shadow and smooth hover scale animation.")}
-          className="text-[10px] font-medium bg-slate-800 hover:bg-blue-600 hover:text-white text-slate-300 px-2.5 py-1 rounded-lg transition-all shrink-0 border border-slate-700/80"
-        >
-          💫 Hover Shadow
+          <Sliders className="size-3" /> Visual Builder
         </button>
       </div>
 
-      {/* Prompt Form */}
-      <form onSubmit={handleSubmit} className="flex items-center gap-2">
-        <input
-          type="text"
-          value={promptInput}
-          onChange={(e) => setPromptInput(e.target.value)}
-          placeholder={`Modify <${selectedElement.tagName}> element...`}
-          autoFocus
-          className="flex-1 bg-slate-950 border border-slate-800 text-slate-100 text-xs px-3 py-2 rounded-xl focus:outline-none focus:border-blue-500"
+      {/* AI Prompt Tab */}
+      {activeTab === "ai" ? (
+        <div className="space-y-3">
+          {/* Quick Modification Pills */}
+          <div className="flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-none">
+            <button
+              type="button"
+              onClick={() => handleQuickPreset("Make this element a glowing gradient background with rounded corners.")}
+              className="text-[10px] font-medium bg-slate-800 hover:bg-blue-600 hover:text-white text-slate-300 px-2.5 py-1 rounded-lg transition-all shrink-0 border border-slate-700/80"
+            >
+              ✨ Gradient Style
+            </button>
+            <button
+              type="button"
+              onClick={() => handleQuickPreset("Increase font size and make text extra bold.")}
+              className="text-[10px] font-medium bg-slate-800 hover:bg-blue-600 hover:text-white text-slate-300 px-2.5 py-1 rounded-lg transition-all shrink-0 border border-slate-700/80"
+            >
+              🔤 Bigger Text
+            </button>
+            <button
+              type="button"
+              onClick={() => handleQuickPreset("Add a drop shadow and smooth hover scale animation.")}
+              className="text-[10px] font-medium bg-slate-800 hover:bg-blue-600 hover:text-white text-slate-300 px-2.5 py-1 rounded-lg transition-all shrink-0 border border-slate-700/80"
+            >
+              💫 Hover Shadow
+            </button>
+          </div>
+
+          {/* Prompt Form */}
+          <form onSubmit={handleSubmit} className="flex items-center gap-2">
+            <input
+              type="text"
+              value={promptInput}
+              onChange={(e) => setPromptInput(e.target.value)}
+              placeholder={`Modify <${selectedElement.tagName}> element...`}
+              autoFocus
+              className="flex-1 bg-slate-950 border border-slate-800 text-slate-100 text-xs px-3 py-2 rounded-xl focus:outline-none focus:border-blue-500"
+            />
+            <button
+              type="submit"
+              disabled={!promptInput.trim()}
+              className="bg-blue-600 hover:bg-blue-500 text-white p-2 rounded-xl disabled:opacity-40 transition-all shadow-md shadow-blue-500/20"
+            >
+              <Send className="size-3.5" />
+            </button>
+          </form>
+        </div>
+      ) : (
+        /* Visual Builder Tab */
+        <VisualBuilderPanel
+          selectedElement={selectedElement}
+          onApplyStyles={handleApplyVisualStyles}
         />
-        <button
-          type="submit"
-          disabled={!promptInput.trim()}
-          className="bg-blue-600 hover:bg-blue-500 text-white p-2 rounded-xl disabled:opacity-40 transition-all shadow-md shadow-blue-500/20"
-        >
-          <Send className="size-3.5" />
-        </button>
-      </form>
+      )}
     </div>
   );
 }

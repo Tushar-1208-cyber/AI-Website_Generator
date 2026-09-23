@@ -107,6 +107,7 @@ RULES:
 4. Include backend/API server code (e.g., 'server.js' or 'api/routes.js') if full-stack backend functionality is requested.
 5. Provide COMPLETE code for all files without placeholders or truncated code.
 6. Do NOT wrap output in single markdown code fences around the entire project; use '--- FILE: path ---' markers.
+7. IMAGES: Use real high-resolution Unsplash image URLs (e.g., https://images.unsplash.com/photo-1518770660439-4636190af475?auto=format&fit=crop&w=800&q=80 for tech, https://images.unsplash.com/photo-1523275335684-37898b6baf30 for product, https://images.unsplash.com/photo-1517248135467-4c7edcad34c4 for food/cafe, https://images.unsplash.com/photo-1534528741775-53994a69daeb for avatar). Never use grey placehold.co images.
 `;
 
     const userPrompt = messages.map((m: ChatMessageItem) => `${m.role || 'user'}: ${m.content || ''}`).join("\n");

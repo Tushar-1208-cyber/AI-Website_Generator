@@ -23,6 +23,7 @@ import {
   Globe,
   Puzzle,
   Palette,
+  KeyRound,
 } from "lucide-react";
 import FileExplorer from "./FileExplorer";
 import ApiConsole from "./ApiConsole";
@@ -36,6 +37,7 @@ import ComponentLibraryModal from "./ComponentLibraryModal";
 import DesignSystemModal from "./DesignSystemModal";
 import ResponsiveAgentModal from "./ResponsiveAgentModal";
 import BackendGeneratorModal from "./BackendGeneratorModal";
+import AuthGeneratorModal from "./AuthGeneratorModal";
 import { insertComponentInstance } from "@/lib/reusableComponentEngine";
 import { indexProject, getRelevantContext } from "@/lib/projectContextEngine";
 import { detectErrors, autoFixErrors } from "@/lib/errorDetectionEngine";
@@ -173,6 +175,7 @@ function WebsiteDesign({
   const [showDesignSystemModal, setShowDesignSystemModal] = useState<boolean>(false);
   const [showResponsiveModal, setShowResponsiveModal] = useState<boolean>(false);
   const [showBackendModal, setShowBackendModal] = useState<boolean>(false);
+  const [showAuthModal, setShowAuthModal] = useState<boolean>(false);
   const [isInspectMode, setIsInspectMode] = useState<boolean>(false);
   const [selectedElementInfo, setSelectedElementInfo] = useState<SelectedElementInfo | null>(null);
   const [isFixingErrors, setIsFixingErrors] = useState<boolean>(false);
@@ -569,6 +572,14 @@ function WebsiteDesign({
               <Server className="size-3.5 text-amber-400" />
               AI Backend
             </button>
+
+            <button
+              onClick={() => setShowAuthModal(true)}
+              className="flex items-center gap-1.5 px-3 py-1 rounded-md text-xs font-medium text-slate-400 hover:text-slate-200 transition-all"
+            >
+              <KeyRound className="size-3.5 text-emerald-400" />
+              AI Auth
+            </button>
           </div>
 
           {/* AI Test Suite */}
@@ -876,6 +887,20 @@ function WebsiteDesign({
             onCodeChange?.(serialized);
             handleCommit(serialized);
             setSelectedFilePath(addedPath);
+          }}
+        />
+      )}
+
+      {/* AI Authentication & Security Generator Modal */}
+      {showAuthModal && (
+        <AuthGeneratorModal
+          filesMap={filesMap}
+          isOpen={showAuthModal}
+          onClose={() => setShowAuthModal(false)}
+          onApplyAuth={(updatedFilesMap) => {
+            const serialized = serializeMultiFiles(updatedFilesMap);
+            onCodeChange?.(serialized);
+            handleCommit(serialized);
           }}
         />
       )}

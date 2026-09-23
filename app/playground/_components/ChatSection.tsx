@@ -5,6 +5,9 @@ import React, { useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { Spinner } from '@/components/ui/spinner'
 import QuickRefactorBar from './QuickRefactorBar'
+import AgentActivityPanel from './AgentActivityPanel'
+import { AgentStep, executeAgentTask } from '@/lib/autonomousAgentEngine'
+import { indexProject } from '@/lib/projectContextEngine'
 
 type Message = {
   role: string
@@ -20,16 +23,41 @@ interface ChatSectionProps {
 
 function ChatSection({ Messages, onSend, loading }: ChatSectionProps) {
   const [input, setInput] = useState<string>('')
+  const [agentSteps, setAgentSteps] = useState<AgentStep[]>([])
+  const [agentSummary, setAgentSummary] = useState<string | null>(null)
 
   const handleSendMessage = async () => {
     if (!input.trim() || loading) return;
-    onSend(input);
+    const prompt = input;
     setInput('');
+
+    // Trigger Autonomous Agent execution tracking
+    const index = indexProject({ "index.html": "<html></html>" });
+    onSend(prompt);
+
+    try {
+      const res = await executeAgentTask(prompt, { "index.html": "<html></html>" }, index, (steps) => {
+        setAgentSteps(steps);
+      });
+      setAgentSummary(res.summary);
+    } catch {
+      // fallback
+    }
   }
 
-  const handleQuickRefactorAction = (prompt: string) => {
+  const handleQuickRefactorAction = async (prompt: string) => {
     if (loading) return;
     onSend(prompt);
+
+    const index = indexProject({ "index.html": "<html></html>" });
+    try {
+      const res = await executeAgentTask(prompt, { "index.html": "<html></html>" }, index, (steps) => {
+        setAgentSteps(steps);
+      });
+      setAgentSummary(res.summary);
+    } catch {
+      // fallback
+    }
   }
 
   return (
@@ -76,8 +104,18 @@ function ChatSection({ Messages, onSend, loading }: ChatSectionProps) {
         )}
       </div>
 
-      {/* Footer Section with Quick Refactor Bar */}
+      {/* Footer Section with Quick Refactor Bar & Agent Activity Panel */}
       <div className='flex shrink-0 flex-col border-t border-slate-800 bg-slate-900/80 p-3 gap-2'>
+        <AgentActivityPanel
+          steps={agentSteps}
+          isExecuting={Boolean(loading)}
+          summary={agentSummary}
+          onClose={() => {
+            setAgentSteps([]);
+            setAgentSummary(null);
+          }}
+        />
+
         <QuickRefactorBar onSelectAction={handleQuickRefactorAction} disabled={loading} />
 
         <div className="flex items-center gap-2">

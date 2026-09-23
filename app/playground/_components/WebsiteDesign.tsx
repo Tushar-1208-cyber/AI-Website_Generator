@@ -14,8 +14,9 @@ import {
   Columns,
   Server,
   FileText,
+  X,
+  Zap,
 } from "lucide-react";
-import JSZip from "jszip";
 import FileExplorer from "./FileExplorer";
 import ApiConsole from "./ApiConsole";
 import {
@@ -25,6 +26,11 @@ import {
   bundleFilesForPreview,
 } from "@/lib/fileTree";
 import { detectHtmlPages, IFRAME_PAGE_ROUTER_SCRIPT } from "@/lib/pageNavigator";
+import {
+  generateNextJsZip,
+  generateReactViteZip,
+  generateVanillaZip,
+} from "@/lib/frameworkExporter";
 
 interface WebsiteDesignProps {
   generatedCode: string;
@@ -138,6 +144,7 @@ function WebsiteDesign({
   const [device, setDevice] = useState<"desktop" | "tablet" | "mobile">("desktop");
   const [selectedFilePath, setSelectedFilePath] = useState<string>("index.html");
   const [activePreviewPage, setActivePreviewPage] = useState<string>("index.html");
+  const [showExportModal, setShowExportModal] = useState<boolean>(false);
 
   const getDeviceWidth = () => {
     switch (device) {
@@ -254,42 +261,35 @@ function WebsiteDesign({
     return bundled;
   }, [filesMap, activePreviewPage]);
 
-  const handleExportZip = async () => {
+  const handleExportZip = () => {
+    setShowExportModal(true);
+  };
+
+  const handleDownloadFrameworkZip = async (framework: "nextjs" | "react-vite" | "vanilla") => {
     try {
-      const zip = new JSZip();
-      Object.keys(filesMap).forEach((filePath) => {
-        zip.file(filePath, filesMap[filePath]);
-      });
+      let blob: Blob;
+      let filename = "project.zip";
 
-      if (!filesMap["package.json"]) {
-        zip.file(
-          "package.json",
-          JSON.stringify(
-            {
-              name: "ai-exported-website",
-              version: "1.0.0",
-              private: true,
-              scripts: { start: "npx serve ." },
-            },
-            null,
-            2
-          )
-        );
+      if (framework === "nextjs") {
+        blob = await generateNextJsZip(filesMap, "ai-nextjs-app");
+        filename = "nextjs14-app.zip";
+      } else if (framework === "react-vite") {
+        blob = await generateReactViteZip(filesMap, "ai-react-vite-app");
+        filename = "react-vite-app.zip";
+      } else {
+        blob = await generateVanillaZip(filesMap);
+        filename = "vanilla-website.zip";
       }
 
-      if (!filesMap["README.md"]) {
-        zip.file("README.md", "# AI Generated Full-Stack Website\n\nOpen index.html in browser or run `npm start`.\n");
-      }
-
-      const blob = await zip.generateAsync({ type: "blob" });
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
-      a.download = "fullstack-website-export.zip";
+      a.download = filename;
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);
       URL.revokeObjectURL(url);
+      setShowExportModal(false);
     } catch (err) {
       console.error("Export zip error:", err);
     }
@@ -537,6 +537,80 @@ function WebsiteDesign({
           </div>
         )}
       </div>
+
+      {/* Framework Export Modal */}
+      {showExportModal && (
+        <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-xs z-50 flex items-center justify-center p-4">
+          <div className="bg-slate-900 border border-slate-800 rounded-2xl shadow-2xl w-full max-w-md p-6 text-slate-100">
+            <div className="flex items-center justify-between mb-4 border-b border-slate-800 pb-3">
+              <div className="flex items-center gap-2">
+                <Download className="size-5 text-blue-400" />
+                <h3 className="font-bold text-sm text-slate-100">Export Project Framework</h3>
+              </div>
+              <button
+                onClick={() => setShowExportModal(false)}
+                className="text-slate-400 hover:text-slate-200 p-1 rounded hover:bg-slate-800"
+              >
+                <X className="size-4" />
+              </button>
+            </div>
+
+            <p className="text-xs text-slate-400 mb-4">
+              Select your preferred framework architecture. The AI code will be transformed into production-ready project files.
+            </p>
+
+            <div className="space-y-2">
+              <button
+                onClick={() => handleDownloadFrameworkZip("nextjs")}
+                className="w-full flex items-center justify-between p-3 rounded-xl bg-slate-950 border border-slate-800 hover:border-blue-500/60 hover:bg-blue-950/20 text-left transition-all group"
+              >
+                <div className="flex items-center gap-3">
+                  <div className="size-9 rounded-lg bg-blue-600/20 text-blue-400 flex items-center justify-center font-bold text-xs">
+                    N14
+                  </div>
+                  <div>
+                    <h4 className="text-xs font-bold text-slate-100 group-hover:text-blue-400">Next.js 14 (App Router)</h4>
+                    <p className="text-[11px] text-slate-400">React TSX + Tailwind CSS (`app/page.tsx`, `layout.tsx`)</p>
+                  </div>
+                </div>
+                <Zap className="size-4 text-slate-500 group-hover:text-blue-400" />
+              </button>
+
+              <button
+                onClick={() => handleDownloadFrameworkZip("react-vite")}
+                className="w-full flex items-center justify-between p-3 rounded-xl bg-slate-950 border border-slate-800 hover:border-emerald-500/60 hover:bg-emerald-950/20 text-left transition-all group"
+              >
+                <div className="flex items-center gap-3">
+                  <div className="size-9 rounded-lg bg-emerald-600/20 text-emerald-400 flex items-center justify-center font-bold text-xs">
+                    Vite
+                  </div>
+                  <div>
+                    <h4 className="text-xs font-bold text-slate-100 group-hover:text-emerald-400">React + Vite</h4>
+                    <p className="text-[11px] text-slate-400">Standard React JSX App (`src/App.jsx`, `vite.config.js`)</p>
+                  </div>
+                </div>
+                <Zap className="size-4 text-slate-500 group-hover:text-emerald-400" />
+              </button>
+
+              <button
+                onClick={() => handleDownloadFrameworkZip("vanilla")}
+                className="w-full flex items-center justify-between p-3 rounded-xl bg-slate-950 border border-slate-800 hover:border-amber-500/60 hover:bg-amber-950/20 text-left transition-all group"
+              >
+                <div className="flex items-center gap-3">
+                  <div className="size-9 rounded-lg bg-amber-600/20 text-amber-400 flex items-center justify-center font-bold text-xs">
+                    HTML
+                  </div>
+                  <div>
+                    <h4 className="text-xs font-bold text-slate-100 group-hover:text-amber-400">Classic HTML / CSS / JS</h4>
+                    <p className="text-[11px] text-slate-400">Standalone multi-file web app</p>
+                  </div>
+                </div>
+                <Zap className="size-4 text-slate-500 group-hover:text-amber-400" />
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

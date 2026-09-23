@@ -21,6 +21,7 @@ import {
   Layers,
   FlaskConical,
   Globe,
+  Puzzle,
 } from "lucide-react";
 import FileExplorer from "./FileExplorer";
 import ApiConsole from "./ApiConsole";
@@ -30,6 +31,8 @@ import ProjectContextPanel from "./ProjectContextPanel";
 import ErrorMonitorBanner from "./ErrorMonitorBanner";
 import TestingAgentModal from "./TestingAgentModal";
 import BrowserAgentDrawer from "./BrowserAgentDrawer";
+import ComponentLibraryModal from "./ComponentLibraryModal";
+import { insertComponentInstance } from "@/lib/reusableComponentEngine";
 import { indexProject, getRelevantContext } from "@/lib/projectContextEngine";
 import { detectErrors, autoFixErrors } from "@/lib/errorDetectionEngine";
 import {
@@ -162,6 +165,7 @@ function WebsiteDesign({
   const [showDeployModal, setShowDeployModal] = useState<boolean>(false);
   const [showTestModal, setShowTestModal] = useState<boolean>(false);
   const [showBrowserDrawer, setShowBrowserDrawer] = useState<boolean>(false);
+  const [showComponentModal, setShowComponentModal] = useState<boolean>(false);
   const [isInspectMode, setIsInspectMode] = useState<boolean>(false);
   const [selectedElementInfo, setSelectedElementInfo] = useState<SelectedElementInfo | null>(null);
   const [isFixingErrors, setIsFixingErrors] = useState<boolean>(false);
@@ -526,6 +530,14 @@ function WebsiteDesign({
               <Layers className="size-3.5 text-purple-400" />
               Project Context
             </button>
+
+            <button
+              onClick={() => setShowComponentModal(true)}
+              className="flex items-center gap-1.5 px-3 py-1 rounded-md text-xs font-medium text-slate-400 hover:text-slate-200 transition-all"
+            >
+              <Puzzle className="size-3.5 text-indigo-400" />
+              Components
+            </button>
           </div>
 
           {/* AI Test Suite */}
@@ -777,6 +789,21 @@ function WebsiteDesign({
             const serialized = serializeMultiFiles(fixedMap);
             onCodeChange?.(serialized);
             handleCommit(serialized);
+          }}
+        />
+      )}
+
+      {/* Component Library Modal */}
+      {showComponentModal && (
+        <ComponentLibraryModal
+          filesMap={filesMap}
+          onClose={() => setShowComponentModal(false)}
+          onInsertComponent={(targetPage, snippet) => {
+            const updatedMap = insertComponentInstance(filesMap, targetPage, snippet);
+            const serialized = serializeMultiFiles(updatedMap);
+            onCodeChange?.(serialized);
+            handleCommit(serialized);
+            setShowComponentModal(false);
           }}
         />
       )}

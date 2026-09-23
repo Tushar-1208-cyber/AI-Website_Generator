@@ -19,6 +19,7 @@ import {
   Crosshair,
   Rocket,
   Layers,
+  FlaskConical,
 } from "lucide-react";
 import FileExplorer from "./FileExplorer";
 import ApiConsole from "./ApiConsole";
@@ -26,6 +27,7 @@ import ElementInspectorDrawer from "./ElementInspectorDrawer";
 import DeployModal from "./DeployModal";
 import ProjectContextPanel from "./ProjectContextPanel";
 import ErrorMonitorBanner from "./ErrorMonitorBanner";
+import TestingAgentModal from "./TestingAgentModal";
 import { indexProject, getRelevantContext } from "@/lib/projectContextEngine";
 import { detectErrors, autoFixErrors } from "@/lib/errorDetectionEngine";
 import {
@@ -156,6 +158,7 @@ function WebsiteDesign({
   const [activePreviewPage, setActivePreviewPage] = useState<string>("index.html");
   const [showExportModal, setShowExportModal] = useState<boolean>(false);
   const [showDeployModal, setShowDeployModal] = useState<boolean>(false);
+  const [showTestModal, setShowTestModal] = useState<boolean>(false);
   const [isInspectMode, setIsInspectMode] = useState<boolean>(false);
   const [selectedElementInfo, setSelectedElementInfo] = useState<SelectedElementInfo | null>(null);
   const [isFixingErrors, setIsFixingErrors] = useState<boolean>(false);
@@ -508,6 +511,15 @@ function WebsiteDesign({
             </button>
           </div>
 
+          {/* AI Test Suite */}
+          <button
+            onClick={() => setShowTestModal(true)}
+            className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-medium rounded-md transition-all shadow-sm border border-slate-700"
+          >
+            <FlaskConical className="size-3.5 text-emerald-400" />
+            Test Suite
+          </button>
+
           {/* Export ZIP */}
           <button
             onClick={handleExportZip}
@@ -727,6 +739,19 @@ function WebsiteDesign({
           projectId={activePreviewPage}
           filesCount={Object.keys(filesMap).length}
           onClose={() => setShowDeployModal(false)}
+        />
+      )}
+
+      {/* Testing Agent Modal */}
+      {showTestModal && (
+        <TestingAgentModal
+          filesMap={filesMap}
+          onClose={() => setShowTestModal(false)}
+          onApplyFixes={(fixedMap) => {
+            const serialized = serializeMultiFiles(fixedMap);
+            onCodeChange?.(serialized);
+            handleCommit(serialized);
+          }}
         />
       )}
 

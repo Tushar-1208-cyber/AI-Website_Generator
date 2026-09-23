@@ -25,7 +25,9 @@ import ApiConsole from "./ApiConsole";
 import ElementInspectorDrawer from "./ElementInspectorDrawer";
 import DeployModal from "./DeployModal";
 import ProjectContextPanel from "./ProjectContextPanel";
+import ErrorMonitorBanner from "./ErrorMonitorBanner";
 import { indexProject, getRelevantContext } from "@/lib/projectContextEngine";
+import { detectErrors, autoFixErrors } from "@/lib/errorDetectionEngine";
 import {
   parseMultiFiles,
   serializeMultiFiles,
@@ -156,6 +158,8 @@ function WebsiteDesign({
   const [showDeployModal, setShowDeployModal] = useState<boolean>(false);
   const [isInspectMode, setIsInspectMode] = useState<boolean>(false);
   const [selectedElementInfo, setSelectedElementInfo] = useState<SelectedElementInfo | null>(null);
+  const [isFixingErrors, setIsFixingErrors] = useState<boolean>(false);
+  const [lastFixSummary, setLastFixSummary] = useState<string | null>(null);
 
   const getDeviceWidth = () => {
     switch (device) {
@@ -173,6 +177,11 @@ function WebsiteDesign({
   const filesMap = useMemo(() => {
     return parseMultiFiles(generatedCode);
   }, [generatedCode]);
+
+  // AI Error Detection Engine
+  const detectedIssues = useMemo(() => {
+    return detectErrors(filesMap);
+  }, [filesMap]);
 
   // Index project using Project Context Engine
   const projectIndex = useMemo(() => {
@@ -287,6 +296,18 @@ function WebsiteDesign({
 
     return bundled;
   }, [filesMap, activePreviewPage, isInspectMode]);
+
+  const handleAutoFix = () => {
+    if (detectedIssues.length === 0) return;
+    setIsFixingErrors(true);
+    const res = autoFixErrors(filesMap, detectedIssues);
+    const serialized = serializeMultiFiles(res.fixedFilesMap);
+    onCodeChange?.(serialized);
+    handleCommit(serialized);
+    setIsFixingErrors(false);
+    setLastFixSummary(`Repaired ${res.fixedCount} code & link issues cleanly.`);
+    setTimeout(() => setLastFixSummary(null), 4000);
+  };
 
   const handleExportZip = () => {
     setShowExportModal(true);
@@ -708,6 +729,14 @@ function WebsiteDesign({
           onClose={() => setShowDeployModal(false)}
         />
       )}
+
+      {/* Error Monitor Banner */}
+      <ErrorMonitorBanner
+        issues={detectedIssues}
+        onFixAll={handleAutoFix}
+        isFixing={isFixingErrors}
+        lastFixSummary={lastFixSummary}
+      />
     </div>
   );
 }

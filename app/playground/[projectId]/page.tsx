@@ -33,11 +33,8 @@ Instructions:
    - Make it fully responsive for all screen sizes.
    - All primary components must match the theme color.
    - Add proper padding and margin for each element.
-   - Components should be independent; do not connect them.
-   - Use placeholders for all images:
-     - Light mode: https://placehold.co/800x600/e2e8f0/1e293b?text=Image
-     - Dark mode: https://placehold.co/800x600/1e293b/e2e8f0?text=Image
-   - Add alt tag describing the image prompt.
+   - Use real high-resolution Unsplash image URLs (e.g. https://images.unsplash.com/photo-1518770660439-4636190af475?auto=format&fit=crop&w=800&q=80 for tech, https://images.unsplash.com/photo-1523275335684-37898b6baf30 for products, https://images.unsplash.com/photo-1534528741775-53994a69daeb for avatars). Never use grey placehold.co images.
+   - Add alt tag describing the image.
    - Use the following libraries/components where appropriate:
      - FontAwesome icons (fa fa-)
      - Flowbite UI components: buttons, modals, forms, tables, tabs, alerts, cards, dialogs, dropdowns, accordions, etc.

@@ -13,6 +13,7 @@ import {
   FileCode,
   Columns,
   Server,
+  FileText,
 } from "lucide-react";
 import JSZip from "jszip";
 import FileExplorer from "./FileExplorer";
@@ -23,6 +24,7 @@ import {
   buildFileTree,
   bundleFilesForPreview,
 } from "@/lib/fileTree";
+import { detectHtmlPages, IFRAME_PAGE_ROUTER_SCRIPT } from "@/lib/pageNavigator";
 
 interface WebsiteDesignProps {
   generatedCode: string;
@@ -135,6 +137,7 @@ function WebsiteDesign({
   const [activeTab, setActiveTab] = useState<"preview" | "code" | "split" | "api">("preview");
   const [device, setDevice] = useState<"desktop" | "tablet" | "mobile">("desktop");
   const [selectedFilePath, setSelectedFilePath] = useState<string>("index.html");
+  const [activePreviewPage, setActivePreviewPage] = useState<string>("index.html");
 
   const getDeviceWidth = () => {
     switch (device) {
@@ -152,6 +155,26 @@ function WebsiteDesign({
   const filesMap = useMemo(() => {
     return parseMultiFiles(generatedCode);
   }, [generatedCode]);
+
+  // Detect HTML pages
+  const htmlPages = useMemo(() => {
+    return detectHtmlPages(filesMap);
+  }, [filesMap]);
+
+  // Listen to postMessage from iframe for internal link clicks (<a href="about.html">)
+  React.useEffect(() => {
+    const handleIframeNavigation = (event: MessageEvent) => {
+      if (event.data && event.data.type === 'NAVIGATE_PAGE' && event.data.page) {
+        const targetPage = event.data.page;
+        const matched = htmlPages.find((p) => p.path.toLowerCase().endsWith(targetPage.toLowerCase()));
+        if (matched) {
+          setActivePreviewPage(matched.path);
+        }
+      }
+    };
+    window.addEventListener('message', handleIframeNavigation);
+    return () => window.removeEventListener('message', handleIframeNavigation);
+  }, [htmlPages]);
 
   // Build tree representation for explorer
   const filesTree = useMemo(() => {
@@ -207,21 +230,29 @@ function WebsiteDesign({
 
 
   const fullHtml = useMemo(() => {
-    let bundled = bundleFilesForPreview(filesMap);
+    // If an active preview page is selected (e.g. about.html), override index.html for bundling
+    const effectiveFilesMap = { ...filesMap };
+    if (activePreviewPage && filesMap[activePreviewPage] && activePreviewPage !== "index.html") {
+      effectiveFilesMap["index.html"] = filesMap[activePreviewPage];
+    }
+
+    let bundled = bundleFilesForPreview(effectiveFilesMap);
     if (!bundled || !bundled.trim()) return "";
 
+    const combinedGuard = `${PREVIEW_GUARD}\n${IFRAME_PAGE_ROUTER_SCRIPT}`;
+
     if (bundled.includes("</head>")) {
-      bundled = bundled.replace("</head>", `${PREVIEW_GUARD}\n</head>`);
+      bundled = bundled.replace("</head>", `${combinedGuard}\n</head>`);
     } else {
-      bundled = `${PREVIEW_GUARD}\n${bundled}`;
+      bundled = `${combinedGuard}\n${bundled}`;
     }
 
     if (!/<html[\s>]/i.test(bundled)) {
-      bundled = `<!DOCTYPE html>\n<html lang="en">\n<head>\n${PREVIEW_GUARD}\n${CDN_HEAD}\n</head>\n<body>\n${bundled}\n</body>\n</html>`;
+      bundled = `<!DOCTYPE html>\n<html lang="en">\n<head>\n${combinedGuard}\n${CDN_HEAD}\n</head>\n<body>\n${bundled}\n</body>\n</html>`;
     }
 
     return bundled;
-  }, [filesMap]);
+  }, [filesMap, activePreviewPage]);
 
   const handleExportZip = async () => {
     try {
@@ -309,6 +340,25 @@ function WebsiteDesign({
             <Smartphone className="size-4" />
           </button>
         </div>
+
+        {/* Page Switcher Dropdown for Multi-Page Websites */}
+        {htmlPages.length > 0 && (
+          <div className="flex items-center gap-1.5 bg-slate-900 px-2 py-1 rounded-lg border border-slate-800 text-xs">
+            <FileText className="size-3.5 text-blue-400 shrink-0" />
+            <span className="text-[11px] text-slate-400 font-medium hidden sm:inline">Page:</span>
+            <select
+              value={activePreviewPage}
+              onChange={(e) => setActivePreviewPage(e.target.value)}
+              className="bg-slate-950 text-slate-100 text-xs font-mono font-medium px-2 py-1 rounded border border-slate-800 focus:outline-none focus:border-blue-500 cursor-pointer"
+            >
+              {htmlPages.map((page) => (
+                <option key={page.path} value={page.path}>
+                  {page.label} ({page.path})
+                </option>
+              ))}
+            </select>
+          </div>
+        )}
 
         {/* Right Toolbar */}
         <div className="flex items-center gap-2">

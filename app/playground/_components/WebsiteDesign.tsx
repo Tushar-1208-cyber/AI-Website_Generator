@@ -28,6 +28,7 @@ import {
   Database,
   GitBranch,
   Users,
+  Gauge,
 } from "lucide-react";
 import FileExplorer from "./FileExplorer";
 import ApiConsole from "./ApiConsole";
@@ -46,6 +47,7 @@ import IntegrationsModal from "./IntegrationsModal";
 import DatabaseStudioModal from "./DatabaseStudioModal";
 import GitVersionModal from "./GitVersionModal";
 import MultiAgentSwarmModal from "./MultiAgentSwarmModal";
+import PerformanceAuditModal from "./PerformanceAuditModal";
 import { insertComponentInstance } from "@/lib/reusableComponentEngine";
 import { indexProject, getRelevantContext } from "@/lib/projectContextEngine";
 import { detectErrors, autoFixErrors } from "@/lib/errorDetectionEngine";
@@ -188,6 +190,7 @@ function WebsiteDesign({
   const [showDatabaseModal, setShowDatabaseModal] = useState<boolean>(false);
   const [showGitModal, setShowGitModal] = useState<boolean>(false);
   const [showSwarmModal, setShowSwarmModal] = useState<boolean>(false);
+  const [showAuditModal, setShowAuditModal] = useState<boolean>(false);
   const [isInspectMode, setIsInspectMode] = useState<boolean>(false);
   const [selectedElementInfo, setSelectedElementInfo] = useState<SelectedElementInfo | null>(null);
   const [isFixingErrors, setIsFixingErrors] = useState<boolean>(false);
@@ -624,6 +627,14 @@ function WebsiteDesign({
               <Users className="size-3.5 text-purple-400" />
               AI Swarm
             </button>
+
+            <button
+              onClick={() => setShowAuditModal(true)}
+              className="flex items-center gap-1.5 px-3 py-1 rounded-md text-xs font-medium text-slate-400 hover:text-slate-200 transition-all"
+            >
+              <Gauge className="size-3.5 text-emerald-400" />
+              Audit
+            </button>
           </div>
 
           {/* AI Test Suite */}
@@ -1003,6 +1014,20 @@ function WebsiteDesign({
             const serialized = serializeMultiFiles(updatedFilesMap);
             onCodeChange?.(serialized);
             handleCommit(serialized);
+          }}
+        />
+      )}
+
+      {/* Real-Time Performance & Accessibility Audit Modal */}
+      {showAuditModal && (
+        <PerformanceAuditModal
+          filesMap={filesMap}
+          htmlCode={activeFileContent || generatedCode}
+          isOpen={showAuditModal}
+          onClose={() => setShowAuditModal(false)}
+          onApplyFixedCode={(fixedHtml) => {
+            handleFileContentChange(activeFilePath, fixedHtml);
+            handleFileContentCommit(activeFilePath, fixedHtml);
           }}
         />
       )}

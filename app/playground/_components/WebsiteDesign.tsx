@@ -24,6 +24,7 @@ import {
   Puzzle,
   Palette,
   KeyRound,
+  Plug,
 } from "lucide-react";
 import FileExplorer from "./FileExplorer";
 import ApiConsole from "./ApiConsole";
@@ -38,6 +39,7 @@ import DesignSystemModal from "./DesignSystemModal";
 import ResponsiveAgentModal from "./ResponsiveAgentModal";
 import BackendGeneratorModal from "./BackendGeneratorModal";
 import AuthGeneratorModal from "./AuthGeneratorModal";
+import IntegrationsModal from "./IntegrationsModal";
 import { insertComponentInstance } from "@/lib/reusableComponentEngine";
 import { indexProject, getRelevantContext } from "@/lib/projectContextEngine";
 import { detectErrors, autoFixErrors } from "@/lib/errorDetectionEngine";
@@ -176,6 +178,7 @@ function WebsiteDesign({
   const [showResponsiveModal, setShowResponsiveModal] = useState<boolean>(false);
   const [showBackendModal, setShowBackendModal] = useState<boolean>(false);
   const [showAuthModal, setShowAuthModal] = useState<boolean>(false);
+  const [showIntegrationsModal, setShowIntegrationsModal] = useState<boolean>(false);
   const [isInspectMode, setIsInspectMode] = useState<boolean>(false);
   const [selectedElementInfo, setSelectedElementInfo] = useState<SelectedElementInfo | null>(null);
   const [isFixingErrors, setIsFixingErrors] = useState<boolean>(false);
@@ -580,6 +583,14 @@ function WebsiteDesign({
               <KeyRound className="size-3.5 text-emerald-400" />
               AI Auth
             </button>
+
+            <button
+              onClick={() => setShowIntegrationsModal(true)}
+              className="flex items-center gap-1.5 px-3 py-1 rounded-md text-xs font-medium text-slate-400 hover:text-slate-200 transition-all"
+            >
+              <Plug className="size-3.5 text-blue-400" />
+              Integrations
+            </button>
           </div>
 
           {/* AI Test Suite */}
@@ -901,6 +912,21 @@ function WebsiteDesign({
             const serialized = serializeMultiFiles(updatedFilesMap);
             onCodeChange?.(serialized);
             handleCommit(serialized);
+          }}
+        />
+      )}
+
+      {/* AI Third-Party Integrations Hub Modal */}
+      {showIntegrationsModal && (
+        <IntegrationsModal
+          filesMap={filesMap}
+          isOpen={showIntegrationsModal}
+          onClose={() => setShowIntegrationsModal(false)}
+          onApplyIntegration={(updatedFilesMap, addedPath) => {
+            const serialized = serializeMultiFiles(updatedFilesMap);
+            onCodeChange?.(serialized);
+            handleCommit(serialized);
+            setSelectedFilePath(addedPath);
           }}
         />
       )}

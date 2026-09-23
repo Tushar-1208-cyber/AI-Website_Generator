@@ -35,6 +35,7 @@ import BrowserAgentDrawer from "./BrowserAgentDrawer";
 import ComponentLibraryModal from "./ComponentLibraryModal";
 import DesignSystemModal from "./DesignSystemModal";
 import ResponsiveAgentModal from "./ResponsiveAgentModal";
+import BackendGeneratorModal from "./BackendGeneratorModal";
 import { insertComponentInstance } from "@/lib/reusableComponentEngine";
 import { indexProject, getRelevantContext } from "@/lib/projectContextEngine";
 import { detectErrors, autoFixErrors } from "@/lib/errorDetectionEngine";
@@ -171,6 +172,7 @@ function WebsiteDesign({
   const [showComponentModal, setShowComponentModal] = useState<boolean>(false);
   const [showDesignSystemModal, setShowDesignSystemModal] = useState<boolean>(false);
   const [showResponsiveModal, setShowResponsiveModal] = useState<boolean>(false);
+  const [showBackendModal, setShowBackendModal] = useState<boolean>(false);
   const [isInspectMode, setIsInspectMode] = useState<boolean>(false);
   const [selectedElementInfo, setSelectedElementInfo] = useState<SelectedElementInfo | null>(null);
   const [isFixingErrors, setIsFixingErrors] = useState<boolean>(false);
@@ -559,6 +561,14 @@ function WebsiteDesign({
               <Smartphone className="size-3.5 text-cyan-400" />
               Responsive AI
             </button>
+
+            <button
+              onClick={() => setShowBackendModal(true)}
+              className="flex items-center gap-1.5 px-3 py-1 rounded-md text-xs font-medium text-slate-400 hover:text-slate-200 transition-all"
+            >
+              <Server className="size-3.5 text-amber-400" />
+              AI Backend
+            </button>
           </div>
 
           {/* AI Test Suite */}
@@ -851,6 +861,21 @@ function WebsiteDesign({
           onApplyFixedCode={(fixedHtml) => {
             handleFileContentChange(activeFilePath, fixedHtml);
             handleFileContentCommit(activeFilePath, fixedHtml);
+          }}
+        />
+      )}
+
+      {/* Full-Stack AI Backend Generator Modal */}
+      {showBackendModal && (
+        <BackendGeneratorModal
+          filesMap={filesMap}
+          isOpen={showBackendModal}
+          onClose={() => setShowBackendModal(false)}
+          onInsertEndpoint={(updatedFilesMap, addedPath) => {
+            const serialized = serializeMultiFiles(updatedFilesMap);
+            onCodeChange?.(serialized);
+            handleCommit(serialized);
+            setSelectedFilePath(addedPath);
           }}
         />
       )}

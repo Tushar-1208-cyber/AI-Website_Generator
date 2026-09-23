@@ -16,9 +16,11 @@ import {
   FileText,
   X,
   Zap,
+  Crosshair,
 } from "lucide-react";
 import FileExplorer from "./FileExplorer";
 import ApiConsole from "./ApiConsole";
+import ElementInspectorDrawer from "./ElementInspectorDrawer";
 import {
   parseMultiFiles,
   serializeMultiFiles,
@@ -26,6 +28,7 @@ import {
   bundleFilesForPreview,
 } from "@/lib/fileTree";
 import { detectHtmlPages, IFRAME_PAGE_ROUTER_SCRIPT } from "@/lib/pageNavigator";
+import { INSPECTOR_IFRAME_SCRIPT, SelectedElementInfo } from "@/lib/elementInspector";
 import {
   generateNextJsZip,
   generateReactViteZip,
@@ -145,6 +148,8 @@ function WebsiteDesign({
   const [selectedFilePath, setSelectedFilePath] = useState<string>("index.html");
   const [activePreviewPage, setActivePreviewPage] = useState<string>("index.html");
   const [showExportModal, setShowExportModal] = useState<boolean>(false);
+  const [isInspectMode, setIsInspectMode] = useState<boolean>(false);
+  const [selectedElementInfo, setSelectedElementInfo] = useState<SelectedElementInfo | null>(null);
 
   const getDeviceWidth = () => {
     switch (device) {
@@ -168,9 +173,9 @@ function WebsiteDesign({
     return detectHtmlPages(filesMap);
   }, [filesMap]);
 
-  // Listen to postMessage from iframe for internal link clicks (<a href="about.html">)
+  // Listen to postMessage from iframe for internal link clicks and element inspection
   React.useEffect(() => {
-    const handleIframeNavigation = (event: MessageEvent) => {
+    const handleIframeMessages = (event: MessageEvent) => {
       if (event.data && event.data.type === 'NAVIGATE_PAGE' && event.data.page) {
         const targetPage = event.data.page;
         const matched = htmlPages.find((p) => p.path.toLowerCase().endsWith(targetPage.toLowerCase()));
@@ -178,9 +183,12 @@ function WebsiteDesign({
           setActivePreviewPage(matched.path);
         }
       }
+      if (event.data && event.data.type === 'ELEMENT_SELECTED' && event.data.element) {
+        setSelectedElementInfo(event.data.element as SelectedElementInfo);
+      }
     };
-    window.addEventListener('message', handleIframeNavigation);
-    return () => window.removeEventListener('message', handleIframeNavigation);
+    window.addEventListener('message', handleIframeMessages);
+    return () => window.removeEventListener('message', handleIframeMessages);
   }, [htmlPages]);
 
   // Build tree representation for explorer
@@ -246,7 +254,10 @@ function WebsiteDesign({
     let bundled = bundleFilesForPreview(effectiveFilesMap);
     if (!bundled || !bundled.trim()) return "";
 
-    const combinedGuard = `${PREVIEW_GUARD}\n${IFRAME_PAGE_ROUTER_SCRIPT}`;
+    let combinedGuard = `${PREVIEW_GUARD}\n${IFRAME_PAGE_ROUTER_SCRIPT}`;
+    if (isInspectMode) {
+      combinedGuard += `\n${INSPECTOR_IFRAME_SCRIPT}`;
+    }
 
     if (bundled.includes("</head>")) {
       bundled = bundled.replace("</head>", `${combinedGuard}\n</head>`);
@@ -259,7 +270,7 @@ function WebsiteDesign({
     }
 
     return bundled;
-  }, [filesMap, activePreviewPage]);
+  }, [filesMap, activePreviewPage, isInspectMode]);
 
   const handleExportZip = () => {
     setShowExportModal(true);
@@ -380,6 +391,20 @@ function WebsiteDesign({
               className="p-1.5 rounded-md text-slate-400 hover:text-slate-100 hover:bg-slate-800 disabled:opacity-30 transition-all"
             >
               <Redo2 className="size-4" />
+            </button>
+
+            {/* Visual Inspect Mode Toggle */}
+            <button
+              onClick={() => setIsInspectMode(!isInspectMode)}
+              title={isInspectMode ? "Disable Inspect Mode" : "Enable Click-to-Edit Visual Inspector"}
+              className={`flex items-center gap-1 px-2 py-1 rounded-md text-xs font-medium transition-all ${
+                isInspectMode
+                  ? "bg-blue-600 text-white shadow-sm animate-pulse"
+                  : "text-slate-400 hover:text-slate-200 hover:bg-slate-800"
+              }`}
+            >
+              <Crosshair className="size-3.5" />
+              <span className="hidden lg:inline">{isInspectMode ? "Inspecting" : "Inspect"}</span>
             </button>
           </div>
 
@@ -610,6 +635,21 @@ function WebsiteDesign({
             </div>
           </div>
         </div>
+      )}
+
+      {/* Element Inspector Drawer */}
+      {selectedElementInfo && (
+        <ElementInspectorDrawer
+          selectedElement={selectedElementInfo}
+          onClose={() => setSelectedElementInfo(null)}
+          onSubmitPrompt={(prompt) => {
+            onCodeChange?.(generatedCode); // preserve current state
+            handleCommit(generatedCode);
+            setSelectedElementInfo(null);
+            // Trigger commit/prompt handler
+            onCommitCodeChange?.(prompt);
+          }}
+        />
       )}
     </div>
   );

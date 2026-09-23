@@ -27,6 +27,7 @@ import {
   Plug,
   Database,
   GitBranch,
+  Users,
 } from "lucide-react";
 import FileExplorer from "./FileExplorer";
 import ApiConsole from "./ApiConsole";
@@ -44,6 +45,7 @@ import AuthGeneratorModal from "./AuthGeneratorModal";
 import IntegrationsModal from "./IntegrationsModal";
 import DatabaseStudioModal from "./DatabaseStudioModal";
 import GitVersionModal from "./GitVersionModal";
+import MultiAgentSwarmModal from "./MultiAgentSwarmModal";
 import { insertComponentInstance } from "@/lib/reusableComponentEngine";
 import { indexProject, getRelevantContext } from "@/lib/projectContextEngine";
 import { detectErrors, autoFixErrors } from "@/lib/errorDetectionEngine";
@@ -185,6 +187,7 @@ function WebsiteDesign({
   const [showIntegrationsModal, setShowIntegrationsModal] = useState<boolean>(false);
   const [showDatabaseModal, setShowDatabaseModal] = useState<boolean>(false);
   const [showGitModal, setShowGitModal] = useState<boolean>(false);
+  const [showSwarmModal, setShowSwarmModal] = useState<boolean>(false);
   const [isInspectMode, setIsInspectMode] = useState<boolean>(false);
   const [selectedElementInfo, setSelectedElementInfo] = useState<SelectedElementInfo | null>(null);
   const [isFixingErrors, setIsFixingErrors] = useState<boolean>(false);
@@ -613,6 +616,14 @@ function WebsiteDesign({
               <GitBranch className="size-3.5 text-emerald-400" />
               Git Control
             </button>
+
+            <button
+              onClick={() => setShowSwarmModal(true)}
+              className="flex items-center gap-1.5 px-3 py-1 rounded-md text-xs font-medium text-slate-400 hover:text-slate-200 transition-all"
+            >
+              <Users className="size-3.5 text-purple-400" />
+              AI Swarm
+            </button>
           </div>
 
           {/* AI Test Suite */}
@@ -976,6 +987,20 @@ function WebsiteDesign({
           onClose={() => setShowGitModal(false)}
           onRestoreSnapshot={(restoredFilesMap) => {
             const serialized = serializeMultiFiles(restoredFilesMap);
+            onCodeChange?.(serialized);
+            handleCommit(serialized);
+          }}
+        />
+      )}
+
+      {/* Multi-Agent AI Swarm Orchestration Modal */}
+      {showSwarmModal && (
+        <MultiAgentSwarmModal
+          filesMap={filesMap}
+          isOpen={showSwarmModal}
+          onClose={() => setShowSwarmModal(false)}
+          onApplySwarmUpdates={(updatedFilesMap) => {
+            const serialized = serializeMultiFiles(updatedFilesMap);
             onCodeChange?.(serialized);
             handleCommit(serialized);
           }}

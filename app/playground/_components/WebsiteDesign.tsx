@@ -18,11 +18,14 @@ import {
   Zap,
   Crosshair,
   Rocket,
+  Layers,
 } from "lucide-react";
 import FileExplorer from "./FileExplorer";
 import ApiConsole from "./ApiConsole";
 import ElementInspectorDrawer from "./ElementInspectorDrawer";
 import DeployModal from "./DeployModal";
+import ProjectContextPanel from "./ProjectContextPanel";
+import { indexProject, getRelevantContext } from "@/lib/projectContextEngine";
 import {
   parseMultiFiles,
   serializeMultiFiles,
@@ -145,7 +148,7 @@ function WebsiteDesign({
   onUndo,
   onRedo,
 }: WebsiteDesignProps) {
-  const [activeTab, setActiveTab] = useState<"preview" | "code" | "split" | "api">("preview");
+  const [activeTab, setActiveTab] = useState<"preview" | "code" | "split" | "api" | "context">("preview");
   const [device, setDevice] = useState<"desktop" | "tablet" | "mobile">("desktop");
   const [selectedFilePath, setSelectedFilePath] = useState<string>("index.html");
   const [activePreviewPage, setActivePreviewPage] = useState<string>("index.html");
@@ -170,6 +173,16 @@ function WebsiteDesign({
   const filesMap = useMemo(() => {
     return parseMultiFiles(generatedCode);
   }, [generatedCode]);
+
+  // Index project using Project Context Engine
+  const projectIndex = useMemo(() => {
+    return indexProject(filesMap);
+  }, [filesMap]);
+
+  // Filter smart context payload
+  const contextPayload = useMemo(() => {
+    return getRelevantContext("", projectIndex, filesMap, selectedElementInfo, activePreviewPage);
+  }, [filesMap, projectIndex, selectedElementInfo, activePreviewPage]);
 
   // Detect HTML pages
   const htmlPages = useMemo(() => {
@@ -460,6 +473,18 @@ function WebsiteDesign({
               <Server className="size-3.5 text-emerald-400" />
               API Console
             </button>
+
+            <button
+              onClick={() => setActiveTab("context")}
+              className={`flex items-center gap-1.5 px-3 py-1 rounded-md text-xs font-medium transition-all ${
+                activeTab === "context"
+                  ? "bg-blue-600 text-white shadow-sm"
+                  : "text-slate-400 hover:text-slate-200"
+              }`}
+            >
+              <Layers className="size-3.5 text-purple-400" />
+              Project Context
+            </button>
           </div>
 
           {/* Export ZIP */}
@@ -571,6 +596,17 @@ function WebsiteDesign({
         {activeTab === "api" && (
           <div className="flex h-full min-h-0 min-w-0 w-full overflow-hidden">
             <ApiConsole filesMap={filesMap} />
+          </div>
+        )}
+
+        {/* Project Context Engine Panel View */}
+        {activeTab === "context" && (
+          <div className="flex h-full min-h-0 min-w-0 w-full overflow-hidden">
+            <ProjectContextPanel
+              index={projectIndex}
+              contextPayload={contextPayload}
+              selectedElement={selectedElementInfo}
+            />
           </div>
         )}
       </div>

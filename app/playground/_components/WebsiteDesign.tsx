@@ -29,6 +29,7 @@ import {
   GitBranch,
   Users,
   Gauge,
+  Share2,
 } from "lucide-react";
 import FileExplorer from "./FileExplorer";
 import ApiConsole from "./ApiConsole";
@@ -48,6 +49,7 @@ import DatabaseStudioModal from "./DatabaseStudioModal";
 import GitVersionModal from "./GitVersionModal";
 import MultiAgentSwarmModal from "./MultiAgentSwarmModal";
 import PerformanceAuditModal from "./PerformanceAuditModal";
+import CollaborationModal from "./CollaborationModal";
 import { insertComponentInstance } from "@/lib/reusableComponentEngine";
 import { indexProject, getRelevantContext } from "@/lib/projectContextEngine";
 import { detectErrors, autoFixErrors } from "@/lib/errorDetectionEngine";
@@ -191,6 +193,7 @@ function WebsiteDesign({
   const [showGitModal, setShowGitModal] = useState<boolean>(false);
   const [showSwarmModal, setShowSwarmModal] = useState<boolean>(false);
   const [showAuditModal, setShowAuditModal] = useState<boolean>(false);
+  const [showCollabModal, setShowCollabModal] = useState<boolean>(false);
   const [isInspectMode, setIsInspectMode] = useState<boolean>(false);
   const [selectedElementInfo, setSelectedElementInfo] = useState<SelectedElementInfo | null>(null);
   const [isFixingErrors, setIsFixingErrors] = useState<boolean>(false);
@@ -635,6 +638,14 @@ function WebsiteDesign({
               <Gauge className="size-3.5 text-emerald-400" />
               Audit
             </button>
+
+            <button
+              onClick={() => setShowCollabModal(true)}
+              className="flex items-center gap-1.5 px-3 py-1 rounded-md text-xs font-medium text-slate-400 hover:text-slate-200 transition-all"
+            >
+              <Share2 className="size-3.5 text-blue-400" />
+              Live Share
+            </button>
           </div>
 
           {/* AI Test Suite */}
@@ -1029,6 +1040,15 @@ function WebsiteDesign({
             handleFileContentChange(activeFilePath, fixedHtml);
             handleFileContentCommit(activeFilePath, fixedHtml);
           }}
+        />
+      )}
+
+      {/* Multiplayer Real-Time Collaboration Modal */}
+      {showCollabModal && (
+        <CollaborationModal
+          filesMap={filesMap}
+          isOpen={showCollabModal}
+          onClose={() => setShowCollabModal(false)}
         />
       )}
 

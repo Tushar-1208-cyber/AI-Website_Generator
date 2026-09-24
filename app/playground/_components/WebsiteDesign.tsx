@@ -32,6 +32,7 @@ import {
   Share2,
   Brain,
   Image as ImageIcon,
+  ShoppingBag,
 } from "lucide-react";
 import FileExplorer from "./FileExplorer";
 import ApiConsole from "./ApiConsole";
@@ -54,6 +55,7 @@ import PerformanceAuditModal from "./PerformanceAuditModal";
 import CollaborationModal from "./CollaborationModal";
 import ProjectMemoryModal from "./ProjectMemoryModal";
 import ImageToCodeModal from "./ImageToCodeModal";
+import MarketplaceModal from "./MarketplaceModal";
 import { insertComponentInstance } from "@/lib/reusableComponentEngine";
 import { indexProject, getRelevantContext } from "@/lib/projectContextEngine";
 import { detectErrors, autoFixErrors } from "@/lib/errorDetectionEngine";
@@ -200,6 +202,7 @@ function WebsiteDesign({
   const [showCollabModal, setShowCollabModal] = useState<boolean>(false);
   const [showMemoryModal, setShowMemoryModal] = useState<boolean>(false);
   const [showImageToCodeModal, setShowImageToCodeModal] = useState<boolean>(false);
+  const [showMarketplaceModal, setShowMarketplaceModal] = useState<boolean>(false);
   const [isInspectMode, setIsInspectMode] = useState<boolean>(false);
   const [selectedElementInfo, setSelectedElementInfo] = useState<SelectedElementInfo | null>(null);
   const [isFixingErrors, setIsFixingErrors] = useState<boolean>(false);
@@ -668,6 +671,14 @@ function WebsiteDesign({
               <ImageIcon className="size-3.5 text-indigo-400" />
               Image to Code
             </button>
+
+            <button
+              onClick={() => setShowMarketplaceModal(true)}
+              className="flex items-center gap-1.5 px-3 py-1 rounded-md text-xs font-medium text-slate-400 hover:text-slate-200 transition-all"
+            >
+              <ShoppingBag className="size-3.5 text-amber-400" />
+              Marketplace
+            </button>
           </div>
 
           {/* AI Test Suite */}
@@ -1090,6 +1101,20 @@ function WebsiteDesign({
           onApplyGeneratedCode={(htmlCode) => {
             handleFileContentChange(activeFilePath, htmlCode);
             handleFileContentCommit(activeFilePath, htmlCode);
+          }}
+        />
+      )}
+
+      {/* AI Component & Template Marketplace Modal */}
+      {showMarketplaceModal && (
+        <MarketplaceModal
+          filesMap={filesMap}
+          isOpen={showMarketplaceModal}
+          onClose={() => setShowMarketplaceModal(false)}
+          onApplyMarketplaceItem={(updatedFilesMap) => {
+            const serialized = serializeMultiFiles(updatedFilesMap);
+            onCodeChange?.(serialized);
+            handleCommit(serialized);
           }}
         />
       )}

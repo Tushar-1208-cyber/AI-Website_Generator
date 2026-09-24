@@ -33,6 +33,7 @@ import {
   Brain,
   Image as ImageIcon,
   ShoppingBag,
+  BarChart3,
 } from "lucide-react";
 import FileExplorer from "./FileExplorer";
 import ApiConsole from "./ApiConsole";
@@ -56,6 +57,7 @@ import CollaborationModal from "./CollaborationModal";
 import ProjectMemoryModal from "./ProjectMemoryModal";
 import ImageToCodeModal from "./ImageToCodeModal";
 import MarketplaceModal from "./MarketplaceModal";
+import MonitoringDashboardModal from "./MonitoringDashboardModal";
 import { insertComponentInstance } from "@/lib/reusableComponentEngine";
 import { indexProject, getRelevantContext } from "@/lib/projectContextEngine";
 import { detectErrors, autoFixErrors } from "@/lib/errorDetectionEngine";
@@ -203,6 +205,7 @@ function WebsiteDesign({
   const [showMemoryModal, setShowMemoryModal] = useState<boolean>(false);
   const [showImageToCodeModal, setShowImageToCodeModal] = useState<boolean>(false);
   const [showMarketplaceModal, setShowMarketplaceModal] = useState<boolean>(false);
+  const [showMonitoringModal, setShowMonitoringModal] = useState<boolean>(false);
   const [isInspectMode, setIsInspectMode] = useState<boolean>(false);
   const [selectedElementInfo, setSelectedElementInfo] = useState<SelectedElementInfo | null>(null);
   const [isFixingErrors, setIsFixingErrors] = useState<boolean>(false);
@@ -679,6 +682,14 @@ function WebsiteDesign({
               <ShoppingBag className="size-3.5 text-amber-400" />
               Marketplace
             </button>
+
+            <button
+              onClick={() => setShowMonitoringModal(true)}
+              className="flex items-center gap-1.5 px-3 py-1 rounded-md text-xs font-medium text-slate-400 hover:text-slate-200 transition-all"
+            >
+              <BarChart3 className="size-3.5 text-emerald-400" />
+              Analytics & Deploy
+            </button>
           </div>
 
           {/* AI Test Suite */}
@@ -1116,6 +1127,14 @@ function WebsiteDesign({
             onCodeChange?.(serialized);
             handleCommit(serialized);
           }}
+        />
+      )}
+
+      {/* Production Deployment & Real-Time Analytics Monitoring Modal */}
+      {showMonitoringModal && (
+        <MonitoringDashboardModal
+          isOpen={showMonitoringModal}
+          onClose={() => setShowMonitoringModal(false)}
         />
       )}
 

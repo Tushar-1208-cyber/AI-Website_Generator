@@ -73,7 +73,10 @@ export async function POST(req: NextRequest) {
 You are a senior full-stack AI web developer and designer.
 When generating or modifying a web application, generate complete, production-ready, clean, modern code split into logical files.
 
-CRITICAL FORMATTING INSTRUCTIONS:
+CRITICAL INSTRUCTIONS:
+- Build ONLY the end-user application requested by the user (e.g. SaaS product, landing page, store).
+- The primary 'index.html' must start directly with standard HTML5 <!DOCTYPE html><html lang="en"> markup of the target website itself.
+- Do not output any administrative wrapper frames or host application shells around the generated website code.
 - You MUST format every file in the project using explicit file header tags:
 --- FILE: path/to/file.ext ---
 
@@ -107,8 +110,7 @@ RULES:
 4. Include backend/API server code (e.g., 'server.js' or 'api/routes.js') if full-stack backend functionality is requested.
 5. Provide COMPLETE code for all files without placeholders or truncated code.
 6. Do NOT wrap output in single markdown code fences around the entire project; use '--- FILE: path ---' markers.
-7. IMAGES: Use real high-resolution Unsplash image URLs (e.g., https://images.unsplash.com/photo-1518770660439-4636190af475?auto=format&fit=crop&w=800&q=80 for tech, https://images.unsplash.com/photo-1523275335684-37898b6baf30 for product, https://images.unsplash.com/photo-1517248135467-4c7edcad34c4 for food/cafe, https://images.unsplash.com/photo-1534528741775-53994a69daeb for avatar). Never use grey placehold.co images.
-8. MULTI-PAGE WEBSITES: When creating full websites, generate separate HTML files for pages (e.g., 'index.html', 'about.html', 'services.html', 'contact.html') with working links (<a href="about.html">).
+7. IMAGES: Use real high-resolution Unsplash image URLs. Never use grey placehold.co images.
 `;
 
     const userPrompt = messages.map((m: ChatMessageItem) => `${m.role || 'user'}: ${m.content || ''}`).join("\n");

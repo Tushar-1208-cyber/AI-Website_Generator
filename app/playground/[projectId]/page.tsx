@@ -21,51 +21,23 @@ export type Messages = {
 }
 
 
-const Prompt = `{user_input}
+const Prompt = `User Request: {user_input}
 
-Instructions:
+Primary Theme Color: {theme_color}
 
-1. If the user input is explicitly asking to generate code, design, or HTML/CSS/JS output (e.g., "Create a landing page", "Build a dashboard", "Generate HTML Tailwind CSS code"), then:
-
-  - Generate a complete website project using HTML, CSS, JavaScript, React, JSON, backend, and database files when they are requested or needed.
-   - Use a modern design with **{theme_color} as the primary color theme**.
-  - Always include a browser-previewable \`index.html\` file.
-   - Make it fully responsive for all screen sizes.
-   - All primary components must match the theme color.
-   - Add proper padding and margin for each element.
-   - Use real high-resolution Unsplash image URLs (e.g. https://images.unsplash.com/photo-1518770660439-4636190af475?auto=format&fit=crop&w=800&q=80 for tech, https://images.unsplash.com/photo-1523275335684-37898b6baf30 for products, https://images.unsplash.com/photo-1534528741775-53994a69daeb for avatars). Never use grey placehold.co images.
-   - Add alt tag describing the image.
-   - Use the following libraries/components where appropriate:
-     - FontAwesome icons (fa fa-)
-     - Flowbite UI components: buttons, modals, forms, tables, tabs, alerts, cards, dialogs, dropdowns, accordions, etc.
-     - Chart.js for charts & graphs
-     - Swiper.js for sliders/carousels
-     - Tippy.js for tooltips & popovers
-   - Include interactive components like modals, dropdowns, and accordions.
-   - Ensure proper spacing, alignment, hierarchy, and theme consistency.
-   - Ensure charts are visually appealing and match the theme color.
-   - Header menu options should be spread out and not connected.
-   - Do not include broken links.
-  - Generate only the requested website. Never recreate or include the AI Website Generator application, PlaygroundHeader, ChatSection, WebsiteDesign, Settings panel, sidebar, toolbar, version selector, Save button, Preview/Code controls, or Export ZIP button.
-  - The generated output is rendered inside an isolated preview iframe, so it must contain only the website requested by the user and must never render another Playground page or nested website generator.
-   - Do not add any extra explanation before or after the files.
-   - IMPORTANT: Return every project file using exactly this format, one file after another:
-     --- FILE: index.html ---
-     <file contents>
-     --- FILE: css/styles.css ---
-     <file contents>
-     --- FILE: js/main.js ---
-     <file contents>
-  - Use sensible folders such as \`css/\`, \`js/\`, \`src/\`, \`server/\`, \`api/\`, \`database/\`, and \`config/\`. Keep HTML, CSS, JavaScript, React, JSON, backend, and database code in separate files. Never put the whole project into one HTML file.
-
-2. If the user input is **general text or greetings** (e.g., "Hi", "Hello", "How are you?") **or does not explicitly ask to generate code**, then:
-
-   - Respond with a simple, friendly text message instead of generating any code.
-
-Example:
-
-- User: "Hi" → Response: "Hello! How can I help you today?"
-- User: "Build a responsive landing page with Tailwind CSS" → Response: [Generate full HTML code as per instructions above]`;
+INSTRUCTIONS FOR CODE GENERATION:
+1. Generate a complete, standalone, production-grade web application for the user's requested business/product using HTML, Tailwind CSS, JavaScript, and asset files.
+2. Build ONLY the end-user website/application described in the request (e.g. landing page, SaaS dashboard, e-commerce store, portfolio).
+3. The main file 'index.html' must start directly with <!DOCTYPE html><html lang="en"> and contain the complete markup (header, hero, sections, footer) of the end-user website.
+4. Always include a primary 'index.html' file.
+5. Use real high-resolution Unsplash image URLs (e.g. https://images.unsplash.com/photo-1518770660439-4636190af475?auto=format&fit=crop&w=800&q=80 for tech, https://images.unsplash.com/photo-1523275335684-37898b6baf30 for products, https://images.unsplash.com/photo-1534528741775-53994a69daeb for avatars).
+6. Format every file strictly using:
+--- FILE: path/to/file.ext ---
+<file contents>
+--- FILE: css/styles.css ---
+<file contents>
+--- FILE: js/main.js ---
+<file contents>`;
 
 
 function PlaygroundPage() {

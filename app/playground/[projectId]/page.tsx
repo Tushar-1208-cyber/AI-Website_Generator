@@ -52,6 +52,17 @@ function PlaygroundPage() {
   const [selectedTheme, setSelectedTheme] = useState('blue');
   const [showSettings, setShowSettings] = useState(false);
 
+  // ---- Controlled Header & Workspace Layout State ----
+  const [activeTab, setActiveTab] = useState<"preview" | "code" | "split" | "api" | "context">("preview");
+  const [device, setDevice] = useState<"desktop" | "tablet" | "mobile">("desktop");
+  const [activePreviewPage, setActivePreviewPage] = useState<string>("index.html");
+  const [htmlPages, setHtmlPages] = useState<{ path: string; label: string }[]>([]);
+  const [isInspectMode, setIsInspectMode] = useState<boolean>(false);
+  const [showBrowserDrawer, setShowBrowserDrawer] = useState<boolean>(false);
+  const [openModalName, setOpenModalName] = useState<string | null>(null);
+  const [showExportModal, setShowExportModal] = useState<boolean>(false);
+  const [showDeployModal, setShowDeployModal] = useState<boolean>(false);
+
   // ---- Undo / Redo history for generatedCode ----
   const codeHistoryRef = useRef<string[]>(['']);
   const historyIndexRef = useRef<number>(0);
@@ -283,10 +294,29 @@ function PlaygroundPage() {
   }, [generatedCode, SaveDesignCode]);
 
 return (
-  <div className="relative flex h-screen min-h-0 min-w-0 flex-col overflow-hidden bg-white">
-    <div className="shrink-0">
-      <PlaygroundHeader onSettingsToggle={() => setShowSettings(prev => !prev)} currentDesignCode={generatedCode} />
-    </div>
+  <div className="relative flex h-screen min-h-0 min-w-0 flex-col overflow-hidden bg-slate-950">
+    <PlaygroundHeader
+      onSettingsToggle={() => setShowSettings((prev) => !prev)}
+      currentDesignCode={generatedCode}
+      activeTab={activeTab}
+      onTabChange={setActiveTab}
+      device={device}
+      onDeviceChange={setDevice}
+      htmlPages={htmlPages}
+      activePreviewPage={activePreviewPage}
+      onPageChange={setActivePreviewPage}
+      canUndo={canUndo}
+      canRedo={canRedo}
+      onUndo={handleUndo}
+      onRedo={handleRedo}
+      isInspectMode={isInspectMode}
+      onInspectToggle={() => setIsInspectMode((prev) => !prev)}
+      showBrowserDrawer={showBrowserDrawer}
+      onBrowserDrawerToggle={() => setShowBrowserDrawer((prev) => !prev)}
+      onExportZip={() => setShowExportModal(true)}
+      onLiveDeploy={() => setShowDeployModal(true)}
+      onOpenModal={(modalName) => setOpenModalName(modalName)}
+    />
     <div className="relative flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden md:flex-row">
         <ChatSection Messages={messages} 
         onSend={(input: string) => SendMessage(input)} 
@@ -299,6 +329,19 @@ return (
           canRedo={canRedo}
           onUndo={handleUndo}
           onRedo={handleRedo}
+          activeTab={activeTab}
+          device={device}
+          activePreviewPage={activePreviewPage}
+          onPageChange={setActivePreviewPage}
+          onHtmlPagesDetected={setHtmlPages}
+          isInspectMode={isInspectMode}
+          showBrowserDrawer={showBrowserDrawer}
+          showExportModal={showExportModal}
+          onExportModalClose={() => setShowExportModal(false)}
+          showDeployModal={showDeployModal}
+          onDeployModalClose={() => setShowDeployModal(false)}
+          openModalName={openModalName}
+          onCloseModal={() => setOpenModalName(null)}
         />
     </div>
 

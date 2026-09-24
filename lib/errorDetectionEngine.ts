@@ -29,9 +29,9 @@ export function detectErrors(filesMap: Record<string, string>): DetectedIssue[] 
   for (const [filePath, content] of Object.entries(filesMap)) {
     if (!filePath.endsWith(".html") && !filePath.endsWith(".htm")) continue;
 
-    // 1. Check for broken internal links (<a href="something.html">)
-    const hrefMatches = content.matchAll(/href=["']([^"']+)["']/gi);
-    for (const match of hrefMatches) {
+    // 1. Check for broken internal page links (<a href="something.html">)
+    const aTagMatches = content.matchAll(/<a\s+[^>]*\bhref=["']([^"']+)["'][^>]*>/gi);
+    for (const match of aTagMatches) {
       const href = match[1];
       // Skip external links, anchors (#), mailto, tel, javascript
       if (

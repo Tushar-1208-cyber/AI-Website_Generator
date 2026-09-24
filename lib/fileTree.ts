@@ -32,6 +32,32 @@ export function getFileType(filename: string): FileType {
   }
 }
 
+export function sanitizeHtmlContent(html: string): string {
+  if (!html || typeof html !== "string") return html;
+
+  // 1. Check if the HTML contains a nested iframe srcdoc wrapper
+  const iframeSrcdocMatch = html.match(/<iframe[^>]*\bsrcdoc=["']([\s\S]*?)["'][^>]*>/i);
+  if (iframeSrcdocMatch && iframeSrcdocMatch[1]) {
+    let unescaped = iframeSrcdocMatch[1]
+      .replace(/&quot;/g, '"')
+      .replace(/&lt;/g, '<')
+      .replace(/&gt;/g, '>')
+      .replace(/&amp;/g, '&')
+      .replace(/&#39;/g, "'");
+    if (unescaped.includes('<html') || unescaped.includes('<body') || unescaped.includes('<!DOCTYPE')) {
+      return unescaped;
+    }
+  }
+
+  // 2. Remove hallucinated AI Assistant / Playground header elements if present
+  let cleaned = html;
+  if (/(?:AI ASSISTANT|Gemini 3\.6|REFACTOR:|Type modification request)/i.test(cleaned)) {
+    cleaned = cleaned.replace(/<(?:div|header|section|aside)[^>]*>(?:(?!<\/(?:div|header|section|aside)>)[\s\S])*?(?:AI ASSISTANT|Gemini 3\.6|REFACTOR:|Type modification request)[\s\S]*?<\/(?:div|header|section|aside)>/gi, '');
+  }
+
+  return cleaned;
+}
+
 /**
  * Parses raw text from AI model into a map of filepath -> content.
  * Supports `--- FILE: path/to/file.ext ---` markers.
@@ -63,6 +89,7 @@ export function parseMultiFiles(rawCode: string): ProjectFilesMap {
     let cleanCode = trimmed;
     cleanCode = cleanCode.replace(/^```html\s*/i, "").replace(/^```\s*/, "");
     cleanCode = cleanCode.replace(/\s*```$/, "");
+    cleanCode = sanitizeHtmlContent(cleanCode);
     return { "index.html": cleanCode.trim() };
   }
 
@@ -74,6 +101,10 @@ export function parseMultiFiles(rawCode: string): ProjectFilesMap {
     let content = trimmed.substring(contentStart, contentEnd).trim();
     // Strip code fence backticks if wrapped inside block
     content = content.replace(/^```[a-z0-9]*\n?/i, "").replace(/\n?```$/i, "").trim();
+
+    if (current.path.endsWith(".html") || current.path.endsWith(".htm")) {
+      content = sanitizeHtmlContent(content);
+    }
 
     filesMap[current.path] = content;
   }

@@ -26,11 +26,11 @@ const Prompt = `User Request: {user_input}
 Primary Theme Color: {theme_color}
 
 INSTRUCTIONS FOR CODE GENERATION:
-1. Generate a complete, standalone, production-grade web application for the user's requested business/product using HTML, Tailwind CSS, JavaScript, and asset files.
-2. Build ONLY the end-user website/application described in the request (e.g. landing page, SaaS dashboard, e-commerce store, portfolio).
-3. The main file 'index.html' must start directly with <!DOCTYPE html><html lang="en"> and contain the complete markup (header, hero, sections, footer) of the end-user website.
+1. Generate ONLY the standalone end-user website/application described in the request (e.g. landing page, SaaS dashboard, e-commerce store, portfolio).
+2. DO NOT generate any host IDE wrapper, Playground toolbar, 'AiSite.builder' logo, 'AI ASSISTANT' panel, or prompt chat sidebar.
+3. The main file 'index.html' must start directly with standard HTML5 <!DOCTYPE html><html lang="en"> containing only the target product website.
 4. Always include a primary 'index.html' file.
-5. Use real high-resolution Unsplash image URLs (e.g. https://images.unsplash.com/photo-1518770660439-4636190af475?auto=format&fit=crop&w=800&q=80 for tech, https://images.unsplash.com/photo-1523275335684-37898b6baf30 for products, https://images.unsplash.com/photo-1534528741775-53994a69daeb for avatars).
+5. Use real high-resolution Unsplash image URLs (e.g. https://images.unsplash.com/photo-1518770660439-4636190af475?auto=format&fit=crop&w=800&q=80 for tech, https://images.unsplash.com/photo-1523275335684-37898b6baf30 for products).
 6. Format every file strictly using:
 --- FILE: path/to/file.ext ---
 <file contents>

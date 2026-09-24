@@ -116,8 +116,6 @@ RULES:
     const userPrompt = messages.map((m: ChatMessageItem) => `${m.role || 'user'}: ${m.content || ''}`).join("\n");
     const fullPrompt = `${SYSTEM_INSTRUCTION}\n\nUSER REQUEST:\n${userPrompt}`;
 
-    const requestedModel = (modelName && modelName.startsWith("gemini-")) ? modelName : "gemini-3.6-flash";
-
     const genAI = new GoogleGenerativeAI(GEMINI_KEY);
 
     const parts: Part[] = [{ text: fullPrompt }];
@@ -135,29 +133,56 @@ RULES:
       }
     }
 
-    // Active working models on Gemini v1beta API: gemini-3.6-flash and gemini-3.5-flash-lite
-    const fallbackModels = Array.from(
-      new Set([requestedModel, "gemini-3.6-flash", "gemini-3.5-flash-lite"])
-    );
+    // Helper: Map user model request to real active Google Gemini API endpoints with robust fallbacks
+    const getModelFallbackList = (requested: string): string[] => {
+      const modelMap: Record<string, string[]> = {
+        "gemini-2.5-flash": ["gemini-2.5-flash", "gemini-2.0-flash", "gemini-1.5-flash"],
+        "gemini-2.0-flash": ["gemini-2.0-flash", "gemini-2.5-flash", "gemini-1.5-flash"],
+        "gemini-1.5-pro": ["gemini-1.5-pro", "gemini-2.5-flash", "gemini-2.0-flash"],
+        "gemini-1.5-flash": ["gemini-1.5-flash", "gemini-2.5-flash", "gemini-2.0-flash"],
+        "gemini-3.6-flash": ["gemini-2.5-flash", "gemini-2.0-flash", "gemini-1.5-flash"],
+        "gemini-3.5-flash-lite": ["gemini-2.0-flash", "gemini-2.5-flash", "gemini-1.5-flash"],
+      };
+
+      const resolved = modelMap[requested] || ["gemini-2.5-flash", "gemini-2.0-flash", "gemini-1.5-flash"];
+      return Array.from(new Set([...resolved, "gemini-2.5-flash", "gemini-2.0-flash", "gemini-1.5-flash", "gemini-1.5-pro"]));
+    };
+
+    const fallbackModels = getModelFallbackList(modelName || "gemini-2.5-flash");
 
     let generatedText = "";
     let lastError: unknown = null;
 
     for (const currentModel of fallbackModels) {
-      try {
-        const model = genAI.getGenerativeModel({ model: currentModel });
-        const result = await model.generateContent({
-          contents: [{ role: "user", parts }],
-        });
-        generatedText = result.response.text();
-        if (generatedText) {
-          console.log(`[AI Generation] Successfully generated output using model: ${currentModel}`);
-          break;
+      let attempts = 0;
+      const maxAttempts = 2;
+      let modelSuccess = false;
+
+      while (attempts < maxAttempts && !modelSuccess) {
+        try {
+          attempts++;
+          const model = genAI.getGenerativeModel({ model: currentModel });
+          const result = await model.generateContent({
+            contents: [{ role: "user", parts }],
+          });
+          generatedText = result.response.text();
+          if (generatedText && generatedText.trim()) {
+            console.log(`[AI Generation] Successfully generated output using model: ${currentModel}`);
+            modelSuccess = true;
+            break;
+          }
+        } catch (err: unknown) {
+          lastError = err;
+          const errMsg = err instanceof Error ? err.message : String(err);
+          console.warn(`[AI Generation] Model ${currentModel} attempt ${attempts} failed (${errMsg}). Trying fallback...`);
+          if (attempts < maxAttempts) {
+            await new Promise((resolve) => setTimeout(resolve, 500));
+          }
         }
-      } catch (err: unknown) {
-        lastError = err;
-        console.warn(`[AI Generation] Model ${currentModel} failed. Trying next fallback...`);
-        await new Promise((resolve) => setTimeout(resolve, 800));
+      }
+
+      if (modelSuccess) {
+        break;
       }
     }
 

@@ -133,22 +133,22 @@ RULES:
       }
     }
 
-    // Helper: Map user model request to real active Google Gemini API endpoints with robust fallbacks
+    // Helper: Map user model request to verified active Google Gemini API endpoints with robust fallbacks
     const getModelFallbackList = (requested: string): string[] => {
-      const modelMap: Record<string, string[]> = {
-        "gemini-2.5-flash": ["gemini-2.5-flash", "gemini-2.0-flash", "gemini-1.5-flash"],
-        "gemini-2.0-flash": ["gemini-2.0-flash", "gemini-2.5-flash", "gemini-1.5-flash"],
-        "gemini-1.5-pro": ["gemini-1.5-pro", "gemini-2.5-flash", "gemini-2.0-flash"],
-        "gemini-1.5-flash": ["gemini-1.5-flash", "gemini-2.5-flash", "gemini-2.0-flash"],
-        "gemini-3.6-flash": ["gemini-2.5-flash", "gemini-2.0-flash", "gemini-1.5-flash"],
-        "gemini-3.5-flash-lite": ["gemini-2.0-flash", "gemini-2.5-flash", "gemini-1.5-flash"],
-      };
+      const activeWorkingModels = [
+        "gemini-3.6-flash",
+        "gemini-3.5-flash",
+        "gemini-3.5-flash-lite",
+        "gemini-3.7-flash",
+        "gemini-3.8-flash",
+      ];
 
-      const resolved = modelMap[requested] || ["gemini-2.5-flash", "gemini-2.0-flash", "gemini-1.5-flash"];
-      return Array.from(new Set([...resolved, "gemini-2.5-flash", "gemini-2.0-flash", "gemini-1.5-flash", "gemini-1.5-pro"]));
+      const primary = activeWorkingModels.includes(requested) ? requested : "gemini-3.6-flash";
+      const fallbacks = [primary, ...activeWorkingModels];
+      return Array.from(new Set(fallbacks));
     };
 
-    const fallbackModels = getModelFallbackList(modelName || "gemini-2.5-flash");
+    const fallbackModels = getModelFallbackList(modelName || "gemini-3.6-flash");
 
     let generatedText = "";
     let lastError: unknown = null;

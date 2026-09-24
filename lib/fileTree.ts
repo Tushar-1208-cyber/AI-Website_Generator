@@ -35,8 +35,10 @@ export function getFileType(filename: string): FileType {
 export function sanitizeHtmlContent(html: string): string {
   if (!html || typeof html !== "string") return html;
 
+  let cleaned = html;
+
   // 1. Check if the HTML contains a nested iframe srcdoc wrapper
-  const iframeSrcdocMatch = html.match(/<iframe[^>]*\bsrcdoc=["']([\s\S]*?)["'][^>]*>/i);
+  const iframeSrcdocMatch = cleaned.match(/<iframe[^>]*\bsrcdoc=["']([\s\S]*?)["'][^>]*>/i);
   if (iframeSrcdocMatch && iframeSrcdocMatch[1]) {
     const unescaped = iframeSrcdocMatch[1]
       .replace(/&quot;/g, '"')
@@ -45,14 +47,18 @@ export function sanitizeHtmlContent(html: string): string {
       .replace(/&amp;/g, '&')
       .replace(/&#39;/g, "'");
     if (unescaped.includes('<html') || unescaped.includes('<body') || unescaped.includes('<!DOCTYPE')) {
-      return unescaped;
+      cleaned = unescaped;
     }
   }
 
-  // 2. Remove hallucinated AI Assistant / Playground header elements if present
-  let cleaned = html;
-  if (/(?:AI ASSISTANT|Gemini 3\.6|REFACTOR:|Type modification request)/i.test(cleaned)) {
-    cleaned = cleaned.replace(/<(?:div|header|section|aside)[^>]*>(?:(?!<\/(?:div|header|section|aside)>)[\s\S])*?(?:AI ASSISTANT|Gemini 3\.6|REFACTOR:|Type modification request)[\s\S]*?<\/(?:div|header|section|aside)>/gi, '');
+  // 2. Strip hallucinated AI Assistant / Playground host header elements if present
+  if (/(?:AiSite\.builder|AI ASSISTANT|Gemini 3\.6|REFACTOR:|Type modification request|PlaygroundHeader)/i.test(cleaned)) {
+    // Remove left AI Assistant sidebar column if present
+    cleaned = cleaned.replace(/<(?:div|aside|section)[^>]*>(?:(?!<\/(?:div|aside|section)>)[\s\S])*?(?:AI ASSISTANT|Type modification request)[\s\S]*?<\/(?:div|aside|section)>/gi, '');
+    // Remove top host header bar if present
+    cleaned = cleaned.replace(/<(?:div|header|nav)[^>]*>(?:(?!<\/(?:div|header|nav)>)[\s\S])*?(?:AiSite\.builder|PlaygroundHeader)[\s\S]*?<\/(?:div|header|nav)>/gi, '');
+    // Remove any remaining refactor bar tags if present
+    cleaned = cleaned.replace(/<(?:div|header|section)[^>]*>(?:(?!<\/(?:div|header|section)>)[\s\S])*?REFACTOR:[\s\S]*?<\/(?:div|header|section)>/gi, '');
   }
 
   return cleaned;

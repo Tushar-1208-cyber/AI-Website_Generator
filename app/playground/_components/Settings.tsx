@@ -14,10 +14,9 @@ interface SettingsProps {
 }
 
 const AI_MODELS = [
-  { value: 'gemini-2.5-flash', label: 'Gemini 2.5 Flash', desc: 'Ultra Fast & High Performance (Default)' },
-  { value: 'gemini-2.0-flash', label: 'Gemini 2.0 Flash', desc: 'Low Latency & High Reliability' },
-  { value: 'gemini-1.5-pro', label: 'Gemini 1.5 Pro', desc: 'Deep Reasoning & Complex Code' },
-  { value: 'gemini-1.5-flash', label: 'Gemini 1.5 Flash', desc: 'Lightweight & Stable Fallback' },
+  { value: 'gemini-3.6-flash', label: 'Gemini 3.6 Flash', desc: 'Ultra Fast & High Performance (Default)' },
+  { value: 'gemini-3.5-flash', label: 'Gemini 3.5 Flash', desc: 'Low Latency & High Stability' },
+  { value: 'gemini-3.5-flash-lite', label: 'Gemini 3.5 Flash Lite', desc: 'Lightweight & High Availability' },
 ]
 
 const COLOR_THEMES = [
@@ -34,7 +33,7 @@ function Settings({
   onSelectModel,
   selectedTheme,
   onSelectTheme,
-  model = 'gemini-2.5-flash',
+  model = 'gemini-3.6-flash',
   onModelChange,
   theme = 'blue',
   onThemeChange,

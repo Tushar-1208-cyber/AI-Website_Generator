@@ -75,8 +75,8 @@ When generating or modifying a web application, generate complete, production-re
 
 CRITICAL INSTRUCTIONS:
 - Build ONLY the end-user application requested by the user (e.g. SaaS product, landing page, store).
+- DO NOT generate any host IDE wrapper, Playground toolbar, 'AiSite.builder' logo, 'AI ASSISTANT' panel, or prompt chat sidebar.
 - The primary 'index.html' must start directly with standard HTML5 <!DOCTYPE html><html lang="en"> markup of the target website itself.
-- Do not output any administrative wrapper frames or host application shells around the generated website code.
 - You MUST format every file in the project using explicit file header tags:
 --- FILE: path/to/file.ext ---
 

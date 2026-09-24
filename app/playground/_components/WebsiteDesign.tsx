@@ -34,6 +34,8 @@ import {
   Image as ImageIcon,
   ShoppingBag,
   BarChart3,
+  Sparkles,
+  ChevronDown,
 } from "lucide-react";
 import FileExplorer from "./FileExplorer";
 import ApiConsole from "./ApiConsole";
@@ -206,6 +208,7 @@ function WebsiteDesign({
   const [showImageToCodeModal, setShowImageToCodeModal] = useState<boolean>(false);
   const [showMarketplaceModal, setShowMarketplaceModal] = useState<boolean>(false);
   const [showMonitoringModal, setShowMonitoringModal] = useState<boolean>(false);
+  const [showToolsMenu, setShowToolsMenu] = useState<boolean>(false);
   const [isInspectMode, setIsInspectMode] = useState<boolean>(false);
   const [selectedElementInfo, setSelectedElementInfo] = useState<SelectedElementInfo | null>(null);
   const [isFixingErrors, setIsFixingErrors] = useState<boolean>(false);
@@ -396,76 +399,75 @@ function WebsiteDesign({
   return (
     <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden bg-slate-900">
       {/* Top Toolbar */}
-      <div className="flex shrink-0 items-center justify-between border-b border-slate-800 bg-slate-950 p-2.5">
-        {/* Device Toggles */}
-        <div className="flex items-center gap-1 bg-slate-900 p-1 rounded-lg border border-slate-800">
-          <button
-            onClick={() => setDevice("desktop")}
-            disabled={activeTab === "code"}
-            title="Desktop"
-            className={`p-1.5 rounded-md transition-all ${
-              device === "desktop" && activeTab !== "code"
-                ? "bg-blue-600 text-white shadow-sm"
-                : "text-slate-400 hover:text-slate-200 disabled:opacity-40"
-            }`}
-          >
-            <Monitor className="size-4" />
-          </button>
-
-          <button
-            onClick={() => setDevice("tablet")}
-            disabled={activeTab === "code"}
-            title="Tablet"
-            className={`p-1.5 rounded-md transition-all ${
-              device === "tablet" && activeTab !== "code"
-                ? "bg-blue-600 text-white shadow-sm"
-                : "text-slate-400 hover:text-slate-200 disabled:opacity-40"
-            }`}
-          >
-            <Tablet className="size-4" />
-          </button>
-
-          <button
-            onClick={() => setDevice("mobile")}
-            disabled={activeTab === "code"}
-            title="Mobile"
-            className={`p-1.5 rounded-md transition-all ${
-              device === "mobile" && activeTab !== "code"
-                ? "bg-blue-600 text-white shadow-sm"
-                : "text-slate-400 hover:text-slate-200 disabled:opacity-40"
-            }`}
-          >
-            <Smartphone className="size-4" />
-          </button>
-        </div>
-
-        {/* Page Switcher Dropdown for Multi-Page Websites */}
-        {htmlPages.length > 0 && (
-          <div className="flex items-center gap-1.5 bg-slate-900 px-2 py-1 rounded-lg border border-slate-800 text-xs">
-            <FileText className="size-3.5 text-blue-400 shrink-0" />
-            <span className="text-[11px] text-slate-400 font-medium hidden sm:inline">Page:</span>
-            <select
-              value={activePreviewPage}
-              onChange={(e) => setActivePreviewPage(e.target.value)}
-              className="bg-slate-950 text-slate-100 text-xs font-mono font-medium px-2 py-1 rounded border border-slate-800 focus:outline-none focus:border-blue-500 cursor-pointer"
+      <div className="flex shrink-0 items-center justify-between border-b border-slate-800 bg-slate-950 px-3 py-2">
+        {/* Left Section: Device Toggles, Page Switcher, Undo/Redo */}
+        <div className="flex items-center gap-2.5">
+          {/* Device Toggles */}
+          <div className="flex items-center gap-1 bg-slate-900 p-1 rounded-lg border border-slate-800">
+            <button
+              onClick={() => setDevice("desktop")}
+              disabled={activeTab === "code"}
+              title="Desktop View"
+              className={`p-1.5 rounded-md transition-all ${
+                device === "desktop" && activeTab !== "code"
+                  ? "bg-blue-600 text-white shadow-sm"
+                  : "text-slate-400 hover:text-slate-200 disabled:opacity-40"
+              }`}
             >
-              {htmlPages.map((page) => (
-                <option key={page.path} value={page.path}>
-                  {page.label} ({page.path})
-                </option>
-              ))}
-            </select>
-          </div>
-        )}
+              <Monitor className="size-4" />
+            </button>
 
-        {/* Right Toolbar */}
-        <div className="flex items-center gap-2">
+            <button
+              onClick={() => setDevice("tablet")}
+              disabled={activeTab === "code"}
+              title="Tablet View"
+              className={`p-1.5 rounded-md transition-all ${
+                device === "tablet" && activeTab !== "code"
+                  ? "bg-blue-600 text-white shadow-sm"
+                  : "text-slate-400 hover:text-slate-200 disabled:opacity-40"
+              }`}
+            >
+              <Tablet className="size-4" />
+            </button>
+
+            <button
+              onClick={() => setDevice("mobile")}
+              disabled={activeTab === "code"}
+              title="Mobile View"
+              className={`p-1.5 rounded-md transition-all ${
+                device === "mobile" && activeTab !== "code"
+                  ? "bg-blue-600 text-white shadow-sm"
+                  : "text-slate-400 hover:text-slate-200 disabled:opacity-40"
+              }`}
+            >
+              <Smartphone className="size-4" />
+            </button>
+          </div>
+
+          {/* Page Switcher Dropdown */}
+          {htmlPages.length > 0 && (
+            <div className="flex items-center gap-1.5 bg-slate-900 px-2 py-1 rounded-lg border border-slate-800 text-xs">
+              <FileText className="size-3.5 text-blue-400 shrink-0" />
+              <select
+                value={activePreviewPage}
+                onChange={(e) => setActivePreviewPage(e.target.value)}
+                className="bg-slate-950 text-slate-100 text-xs font-mono font-medium px-1.5 py-0.5 rounded border border-slate-800 focus:outline-none focus:border-blue-500 cursor-pointer"
+              >
+                {htmlPages.map((page) => (
+                  <option key={page.path} value={page.path}>
+                    {page.label} ({page.path})
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
+
           {/* Undo / Redo */}
-          <div className="flex items-center gap-1 mr-1">
+          <div className="flex items-center gap-0.5 border-l border-slate-800 pl-2">
             <button
               onClick={onUndo}
               disabled={!canUndo}
-              title="Undo"
+              title="Undo Code Change"
               className="p-1.5 rounded-md text-slate-400 hover:text-slate-100 hover:bg-slate-800 disabled:opacity-30 transition-all"
             >
               <Undo2 className="size-4" />
@@ -474,249 +476,302 @@ function WebsiteDesign({
             <button
               onClick={onRedo}
               disabled={!canRedo}
-              title="Redo"
+              title="Redo Code Change"
               className="p-1.5 rounded-md text-slate-400 hover:text-slate-100 hover:bg-slate-800 disabled:opacity-30 transition-all"
             >
               <Redo2 className="size-4" />
             </button>
-
-            {/* Visual Inspect Mode Toggle */}
-            <button
-              onClick={() => setIsInspectMode(!isInspectMode)}
-              title={isInspectMode ? "Disable Inspect Mode" : "Enable Click-to-Edit Visual Inspector"}
-              className={`flex items-center gap-1 px-2 py-1 rounded-md text-xs font-medium transition-all ${
-                isInspectMode
-                  ? "bg-blue-600 text-white shadow-sm animate-pulse"
-                  : "text-slate-400 hover:text-slate-200 hover:bg-slate-800"
-              }`}
-            >
-              <Crosshair className="size-3.5" />
-              <span className="hidden lg:inline">{isInspectMode ? "Inspecting" : "Inspect"}</span>
-            </button>
-
-            {/* AI Browser Agent Drawer Toggle */}
-            <button
-              onClick={() => setShowBrowserDrawer(!showBrowserDrawer)}
-              title="Toggle AI Browser Agent Simulation"
-              className={`flex items-center gap-1 px-2 py-1 rounded-md text-xs font-medium transition-all ${
-                showBrowserDrawer
-                  ? "bg-indigo-600 text-white shadow-sm"
-                  : "text-slate-400 hover:text-slate-200 hover:bg-slate-800"
-              }`}
-            >
-              <Globe className="size-3.5 text-indigo-400" />
-              <span className="hidden lg:inline">Browser</span>
-            </button>
           </div>
+        </div>
 
-          {/* View Modes: Preview | Code | Split */}
-          <div className="flex items-center bg-slate-900 p-1 rounded-lg border border-slate-800">
-            <button
-              onClick={() => setActiveTab("preview")}
-              className={`flex items-center gap-1.5 px-3 py-1 rounded-md text-xs font-medium transition-all ${
-                activeTab === "preview"
-                  ? "bg-blue-600 text-white shadow-sm"
-                  : "text-slate-400 hover:text-slate-200"
-              }`}
-            >
-              <Eye className="size-3.5" />
-              Preview
-            </button>
-
-            <button
-              onClick={() => setActiveTab("code")}
-              className={`flex items-center gap-1.5 px-3 py-1 rounded-md text-xs font-medium transition-all ${
-                activeTab === "code"
-                  ? "bg-blue-600 text-white shadow-sm"
-                  : "text-slate-400 hover:text-slate-200"
-              }`}
-            >
-              <Code className="size-3.5" />
-              Explorer & Code
-            </button>
-
-            <button
-              onClick={() => setActiveTab("split")}
-              className={`flex items-center gap-1.5 px-3 py-1 rounded-md text-xs font-medium transition-all ${
-                activeTab === "split"
-                  ? "bg-blue-600 text-white shadow-sm"
-                  : "text-slate-400 hover:text-slate-200"
-              }`}
-            >
-              <Columns className="size-3.5" />
-              Split View
-            </button>
-
-            <button
-              onClick={() => setActiveTab("api")}
-              className={`flex items-center gap-1.5 px-3 py-1 rounded-md text-xs font-medium transition-all ${
-                activeTab === "api"
-                  ? "bg-blue-600 text-white shadow-sm"
-                  : "text-slate-400 hover:text-slate-200"
-              }`}
-            >
-              <Server className="size-3.5 text-emerald-400" />
-              API Console
-            </button>
-
-            <button
-              onClick={() => setActiveTab("context")}
-              className={`flex items-center gap-1.5 px-3 py-1 rounded-md text-xs font-medium transition-all ${
-                activeTab === "context"
-                  ? "bg-blue-600 text-white shadow-sm"
-                  : "text-slate-400 hover:text-slate-200"
-              }`}
-            >
-              <Layers className="size-3.5 text-purple-400" />
-              Project Context
-            </button>
-
-            <button
-              onClick={() => setShowComponentModal(true)}
-              className="flex items-center gap-1.5 px-3 py-1 rounded-md text-xs font-medium text-slate-400 hover:text-slate-200 transition-all"
-            >
-              <Puzzle className="size-3.5 text-indigo-400" />
-              Components
-            </button>
-
-            <button
-              onClick={() => setShowDesignSystemModal(true)}
-              className="flex items-center gap-1.5 px-3 py-1 rounded-md text-xs font-medium text-slate-400 hover:text-slate-200 transition-all"
-            >
-              <Palette className="size-3.5 text-pink-400" />
-              Design System
-            </button>
-
-            <button
-              onClick={() => setShowResponsiveModal(true)}
-              className="flex items-center gap-1.5 px-3 py-1 rounded-md text-xs font-medium text-slate-400 hover:text-slate-200 transition-all"
-            >
-              <Smartphone className="size-3.5 text-cyan-400" />
-              Responsive AI
-            </button>
-
-            <button
-              onClick={() => setShowBackendModal(true)}
-              className="flex items-center gap-1.5 px-3 py-1 rounded-md text-xs font-medium text-slate-400 hover:text-slate-200 transition-all"
-            >
-              <Server className="size-3.5 text-amber-400" />
-              AI Backend
-            </button>
-
-            <button
-              onClick={() => setShowAuthModal(true)}
-              className="flex items-center gap-1.5 px-3 py-1 rounded-md text-xs font-medium text-slate-400 hover:text-slate-200 transition-all"
-            >
-              <KeyRound className="size-3.5 text-emerald-400" />
-              AI Auth
-            </button>
-
-            <button
-              onClick={() => setShowIntegrationsModal(true)}
-              className="flex items-center gap-1.5 px-3 py-1 rounded-md text-xs font-medium text-slate-400 hover:text-slate-200 transition-all"
-            >
-              <Plug className="size-3.5 text-blue-400" />
-              Integrations
-            </button>
-
-            <button
-              onClick={() => setShowDatabaseModal(true)}
-              className="flex items-center gap-1.5 px-3 py-1 rounded-md text-xs font-medium text-slate-400 hover:text-slate-200 transition-all"
-            >
-              <Database className="size-3.5 text-cyan-400" />
-              Database
-            </button>
-
-            <button
-              onClick={() => setShowGitModal(true)}
-              className="flex items-center gap-1.5 px-3 py-1 rounded-md text-xs font-medium text-slate-400 hover:text-slate-200 transition-all"
-            >
-              <GitBranch className="size-3.5 text-emerald-400" />
-              Git Control
-            </button>
-
-            <button
-              onClick={() => setShowSwarmModal(true)}
-              className="flex items-center gap-1.5 px-3 py-1 rounded-md text-xs font-medium text-slate-400 hover:text-slate-200 transition-all"
-            >
-              <Users className="size-3.5 text-purple-400" />
-              AI Swarm
-            </button>
-
-            <button
-              onClick={() => setShowAuditModal(true)}
-              className="flex items-center gap-1.5 px-3 py-1 rounded-md text-xs font-medium text-slate-400 hover:text-slate-200 transition-all"
-            >
-              <Gauge className="size-3.5 text-emerald-400" />
-              Audit
-            </button>
-
-            <button
-              onClick={() => setShowCollabModal(true)}
-              className="flex items-center gap-1.5 px-3 py-1 rounded-md text-xs font-medium text-slate-400 hover:text-slate-200 transition-all"
-            >
-              <Share2 className="size-3.5 text-blue-400" />
-              Live Share
-            </button>
-
-            <button
-              onClick={() => setShowMemoryModal(true)}
-              className="flex items-center gap-1.5 px-3 py-1 rounded-md text-xs font-medium text-slate-400 hover:text-slate-200 transition-all"
-            >
-              <Brain className="size-3.5 text-pink-400" />
-              AI Memory
-            </button>
-
-            <button
-              onClick={() => setShowImageToCodeModal(true)}
-              className="flex items-center gap-1.5 px-3 py-1 rounded-md text-xs font-medium text-slate-400 hover:text-slate-200 transition-all"
-            >
-              <ImageIcon className="size-3.5 text-indigo-400" />
-              Image to Code
-            </button>
-
-            <button
-              onClick={() => setShowMarketplaceModal(true)}
-              className="flex items-center gap-1.5 px-3 py-1 rounded-md text-xs font-medium text-slate-400 hover:text-slate-200 transition-all"
-            >
-              <ShoppingBag className="size-3.5 text-amber-400" />
-              Marketplace
-            </button>
-
-            <button
-              onClick={() => setShowMonitoringModal(true)}
-              className="flex items-center gap-1.5 px-3 py-1 rounded-md text-xs font-medium text-slate-400 hover:text-slate-200 transition-all"
-            >
-              <BarChart3 className="size-3.5 text-emerald-400" />
-              Analytics & Deploy
-            </button>
-          </div>
-
-          {/* AI Test Suite */}
+        {/* Center Section: View Switcher Tabs */}
+        <div className="flex items-center bg-slate-900 p-1 rounded-lg border border-slate-800">
           <button
-            onClick={() => setShowTestModal(true)}
-            className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-medium rounded-md transition-all shadow-sm border border-slate-700"
+            onClick={() => setActiveTab("preview")}
+            className={`flex items-center gap-1.5 px-3 py-1 rounded-md text-xs font-medium transition-all ${
+              activeTab === "preview"
+                ? "bg-blue-600 text-white shadow-sm font-semibold"
+                : "text-slate-400 hover:text-slate-200"
+            }`}
           >
-            <FlaskConical className="size-3.5 text-emerald-400" />
-            Test Suite
+            <Eye className="size-3.5" />
+            <span>Preview</span>
           </button>
+
+          <button
+            onClick={() => setActiveTab("code")}
+            className={`flex items-center gap-1.5 px-3 py-1 rounded-md text-xs font-medium transition-all ${
+              activeTab === "code"
+                ? "bg-blue-600 text-white shadow-sm font-semibold"
+                : "text-slate-400 hover:text-slate-200"
+            }`}
+          >
+            <Code className="size-3.5" />
+            <span>Code</span>
+          </button>
+
+          <button
+            onClick={() => setActiveTab("split")}
+            className={`flex items-center gap-1.5 px-3 py-1 rounded-md text-xs font-medium transition-all ${
+              activeTab === "split"
+                ? "bg-blue-600 text-white shadow-sm font-semibold"
+                : "text-slate-400 hover:text-slate-200"
+            }`}
+          >
+            <Columns className="size-3.5" />
+            <span>Split</span>
+          </button>
+
+          <button
+            onClick={() => setActiveTab("api")}
+            className={`flex items-center gap-1.5 px-3 py-1 rounded-md text-xs font-medium transition-all ${
+              activeTab === "api"
+                ? "bg-blue-600 text-white shadow-sm font-semibold"
+                : "text-slate-400 hover:text-slate-200"
+            }`}
+          >
+            <Server className="size-3.5 text-emerald-400" />
+            <span>API</span>
+          </button>
+
+          <button
+            onClick={() => setActiveTab("context")}
+            className={`flex items-center gap-1.5 px-3 py-1 rounded-md text-xs font-medium transition-all ${
+              activeTab === "context"
+                ? "bg-blue-600 text-white shadow-sm font-semibold"
+                : "text-slate-400 hover:text-slate-200"
+            }`}
+          >
+            <Layers className="size-3.5 text-purple-400" />
+            <span>Context</span>
+          </button>
+        </div>
+
+        {/* Right Section: Inspect, Browser, AI Engines Dropdown, Export, Deploy */}
+        <div className="flex items-center gap-2">
+          {/* Visual Inspect Mode Toggle */}
+          <button
+            onClick={() => setIsInspectMode(!isInspectMode)}
+            title={isInspectMode ? "Disable Inspect Mode" : "Click-to-Edit Visual Inspector"}
+            className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium transition-all ${
+              isInspectMode
+                ? "bg-blue-600 text-white shadow-sm animate-pulse"
+                : "bg-slate-900 border border-slate-800 text-slate-300 hover:text-white hover:bg-slate-800"
+            }`}
+          >
+            <Crosshair className="size-3.5 text-blue-400" />
+            <span className="hidden xl:inline">{isInspectMode ? "Inspecting" : "Inspect"}</span>
+          </button>
+
+          {/* AI Browser Agent Drawer Toggle */}
+          <button
+            onClick={() => setShowBrowserDrawer(!showBrowserDrawer)}
+            title="AI Browser Agent Simulation"
+            className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium transition-all ${
+              showBrowserDrawer
+                ? "bg-indigo-600 text-white shadow-sm"
+                : "bg-slate-900 border border-slate-800 text-slate-300 hover:text-white hover:bg-slate-800"
+            }`}
+          >
+            <Globe className="size-3.5 text-indigo-400" />
+            <span className="hidden xl:inline">Browser</span>
+          </button>
+
+          {/* AI Engines Popover Studio Menu */}
+          <div className="relative">
+            <button
+              onClick={() => setShowToolsMenu(!showToolsMenu)}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-gradient-to-r from-indigo-950 via-slate-900 to-purple-950 border border-indigo-800/60 hover:border-indigo-600 text-xs font-semibold text-indigo-200 shadow-sm transition-all cursor-pointer"
+            >
+              <Sparkles className="size-3.5 text-purple-400 animate-pulse" />
+              <span>AI Engines</span>
+              <span className="ml-1 px-1.5 py-0.2 rounded-full bg-purple-500/20 text-purple-300 text-[10px] font-mono">16</span>
+              <ChevronDown className="size-3 text-slate-400" />
+            </button>
+
+            {/* AI Tools Popover Grid Menu */}
+            {showToolsMenu && (
+              <>
+                <div
+                  className="fixed inset-0 z-40"
+                  onClick={() => setShowToolsMenu(false)}
+                />
+                <div className="absolute right-0 top-full mt-2 w-[480px] max-w-[90vw] bg-slate-950 border border-slate-800 rounded-2xl shadow-2xl z-50 p-4 space-y-4 font-sans animate-in fade-in slide-in-from-top-2">
+                  <div className="flex items-center justify-between border-b border-slate-800/80 pb-2.5">
+                    <div className="flex items-center gap-2">
+                      <Sparkles className="size-4 text-purple-400" />
+                      <h4 className="text-xs font-bold text-slate-100 tracking-wide uppercase">AI Engines & Studio Tools</h4>
+                    </div>
+                    <button
+                      onClick={() => setShowToolsMenu(false)}
+                      className="text-slate-400 hover:text-slate-200 p-1 rounded-md hover:bg-slate-800"
+                    >
+                      <X className="size-3.5" />
+                    </button>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-3 text-xs">
+                    {/* Category 1: Design & Frontend */}
+                    <div className="space-y-1 bg-slate-900/60 p-2.5 rounded-xl border border-slate-800/60">
+                      <span className="text-[10px] font-bold text-purple-400 uppercase tracking-wider block mb-1">
+                        🎨 Design & Components
+                      </span>
+                      <button
+                        onClick={() => { setShowComponentModal(true); setShowToolsMenu(false); }}
+                        className="w-full flex items-center gap-2 p-1.5 rounded-lg hover:bg-slate-800 text-slate-300 hover:text-white transition-all text-left"
+                      >
+                        <Puzzle className="size-3.5 text-indigo-400 shrink-0" />
+                        <span>Components Library</span>
+                      </button>
+                      <button
+                        onClick={() => { setShowDesignSystemModal(true); setShowToolsMenu(false); }}
+                        className="w-full flex items-center gap-2 p-1.5 rounded-lg hover:bg-slate-800 text-slate-300 hover:text-white transition-all text-left"
+                      >
+                        <Palette className="size-3.5 text-pink-400 shrink-0" />
+                        <span>Design System Studio</span>
+                      </button>
+                      <button
+                        onClick={() => { setShowResponsiveModal(true); setShowToolsMenu(false); }}
+                        className="w-full flex items-center gap-2 p-1.5 rounded-lg hover:bg-slate-800 text-slate-300 hover:text-white transition-all text-left"
+                      >
+                        <Smartphone className="size-3.5 text-cyan-400 shrink-0" />
+                        <span>Responsive AI Agent</span>
+                      </button>
+                      <button
+                        onClick={() => { setShowImageToCodeModal(true); setShowToolsMenu(false); }}
+                        className="w-full flex items-center gap-2 p-1.5 rounded-lg hover:bg-slate-800 text-slate-300 hover:text-white transition-all text-left"
+                      >
+                        <ImageIcon className="size-3.5 text-indigo-400 shrink-0" />
+                        <span>Image / Figma to Code</span>
+                      </button>
+                      <button
+                        onClick={() => { setShowMarketplaceModal(true); setShowToolsMenu(false); }}
+                        className="w-full flex items-center gap-2 p-1.5 rounded-lg hover:bg-slate-800 text-slate-300 hover:text-white transition-all text-left"
+                      >
+                        <ShoppingBag className="size-3.5 text-amber-400 shrink-0" />
+                        <span>Template Marketplace</span>
+                      </button>
+                    </div>
+
+                    {/* Category 2: Backend & Database */}
+                    <div className="space-y-1 bg-slate-900/60 p-2.5 rounded-xl border border-slate-800/60">
+                      <span className="text-[10px] font-bold text-amber-400 uppercase tracking-wider block mb-1">
+                        ⚡ Backend & Security
+                      </span>
+                      <button
+                        onClick={() => { setShowBackendModal(true); setShowToolsMenu(false); }}
+                        className="w-full flex items-center gap-2 p-1.5 rounded-lg hover:bg-slate-800 text-slate-300 hover:text-white transition-all text-left"
+                      >
+                        <Server className="size-3.5 text-amber-400 shrink-0" />
+                        <span>AI Backend Generator</span>
+                      </button>
+                      <button
+                        onClick={() => { setShowAuthModal(true); setShowToolsMenu(false); }}
+                        className="w-full flex items-center gap-2 p-1.5 rounded-lg hover:bg-slate-800 text-slate-300 hover:text-white transition-all text-left"
+                      >
+                        <KeyRound className="size-3.5 text-emerald-400 shrink-0" />
+                        <span>AI Auth Engine</span>
+                      </button>
+                      <button
+                        onClick={() => { setShowDatabaseModal(true); setShowToolsMenu(false); }}
+                        className="w-full flex items-center gap-2 p-1.5 rounded-lg hover:bg-slate-800 text-slate-300 hover:text-white transition-all text-left"
+                      >
+                        <Database className="size-3.5 text-cyan-400 shrink-0" />
+                        <span>Visual Database Studio</span>
+                      </button>
+                      <button
+                        onClick={() => { setShowIntegrationsModal(true); setShowToolsMenu(false); }}
+                        className="w-full flex items-center gap-2 p-1.5 rounded-lg hover:bg-slate-800 text-slate-300 hover:text-white transition-all text-left"
+                      >
+                        <Plug className="size-3.5 text-blue-400 shrink-0" />
+                        <span>API Integrations</span>
+                      </button>
+                    </div>
+
+                    {/* Category 3: Multi-Agent & Collab */}
+                    <div className="space-y-1 bg-slate-900/60 p-2.5 rounded-xl border border-slate-800/60">
+                      <span className="text-[10px] font-bold text-cyan-400 uppercase tracking-wider block mb-1">
+                        🤖 Swarm & Intelligence
+                      </span>
+                      <button
+                        onClick={() => { setShowSwarmModal(true); setShowToolsMenu(false); }}
+                        className="w-full flex items-center gap-2 p-1.5 rounded-lg hover:bg-slate-800 text-slate-300 hover:text-white transition-all text-left"
+                      >
+                        <Users className="size-3.5 text-purple-400 shrink-0" />
+                        <span>Multi-Agent Swarm</span>
+                      </button>
+                      <button
+                        onClick={() => { setShowMemoryModal(true); setShowToolsMenu(false); }}
+                        className="w-full flex items-center gap-2 p-1.5 rounded-lg hover:bg-slate-800 text-slate-300 hover:text-white transition-all text-left"
+                      >
+                        <Brain className="size-3.5 text-pink-400 shrink-0" />
+                        <span>Project Memory Engine</span>
+                      </button>
+                      <button
+                        onClick={() => { setShowCollabModal(true); setShowToolsMenu(false); }}
+                        className="w-full flex items-center gap-2 p-1.5 rounded-lg hover:bg-slate-800 text-slate-300 hover:text-white transition-all text-left"
+                      >
+                        <Share2 className="size-3.5 text-blue-400 shrink-0" />
+                        <span>Real-Time Live Share</span>
+                      </button>
+                    </div>
+
+                    {/* Category 4: DevOps & Analytics */}
+                    <div className="space-y-1 bg-slate-900/60 p-2.5 rounded-xl border border-slate-800/60">
+                      <span className="text-[10px] font-bold text-emerald-400 uppercase tracking-wider block mb-1">
+                        🚀 DevOps & Quality
+                      </span>
+                      <button
+                        onClick={() => { setShowGitModal(true); setShowToolsMenu(false); }}
+                        className="w-full flex items-center gap-2 p-1.5 rounded-lg hover:bg-slate-800 text-slate-300 hover:text-white transition-all text-left"
+                      >
+                        <GitBranch className="size-3.5 text-emerald-400 shrink-0" />
+                        <span>Git Version Agent</span>
+                      </button>
+                      <button
+                        onClick={() => { setShowAuditModal(true); setShowToolsMenu(false); }}
+                        className="w-full flex items-center gap-2 p-1.5 rounded-lg hover:bg-slate-800 text-slate-300 hover:text-white transition-all text-left"
+                      >
+                        <Gauge className="size-3.5 text-emerald-400 shrink-0" />
+                        <span>Performance & SEO Audit</span>
+                      </button>
+                      <button
+                        onClick={() => { setShowTestModal(true); setShowToolsMenu(false); }}
+                        className="w-full flex items-center gap-2 p-1.5 rounded-lg hover:bg-slate-800 text-slate-300 hover:text-white transition-all text-left"
+                      >
+                        <FlaskConical className="size-3.5 text-emerald-400 shrink-0" />
+                        <span>AI Test Suite</span>
+                      </button>
+                      <button
+                        onClick={() => { setShowMonitoringModal(true); setShowToolsMenu(false); }}
+                        className="w-full flex items-center gap-2 p-1.5 rounded-lg hover:bg-slate-800 text-slate-300 hover:text-white transition-all text-left"
+                      >
+                        <BarChart3 className="size-3.5 text-emerald-400 shrink-0" />
+                        <span>Analytics Dashboard</span>
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </>
+            )}
+          </div>
 
           {/* Export ZIP */}
           <button
             onClick={handleExportZip}
-            className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-medium rounded-md transition-all shadow-sm border border-slate-700"
+            className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-900 hover:bg-slate-800 text-slate-200 text-xs font-medium rounded-lg transition-all shadow-sm border border-slate-800"
           >
             <Download className="size-3.5" />
-            Export ZIP
+            <span className="hidden sm:inline">Export ZIP</span>
           </button>
 
           {/* Live Deploy */}
           <button
             onClick={() => setShowDeployModal(true)}
-            className="flex items-center gap-1.5 px-3.5 py-1.5 bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 hover:from-blue-500 hover:to-purple-500 text-white text-xs font-semibold rounded-md transition-all shadow-md shadow-blue-500/25"
+            className="flex items-center gap-1.5 px-3.5 py-1.5 bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 hover:from-blue-500 hover:to-purple-500 text-white text-xs font-semibold rounded-lg transition-all shadow-md shadow-blue-500/20"
           >
             <Rocket className="size-3.5" />
-            Live Deploy
+            <span>Live Deploy</span>
           </button>
         </div>
       </div>

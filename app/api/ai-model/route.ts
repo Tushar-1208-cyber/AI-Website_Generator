@@ -136,31 +136,30 @@ RULES:
     // Helper: Map user model request to verified active Google Gemini API endpoints with robust fallbacks
     const getModelFallbackList = (requested: string): string[] => {
       const activeWorkingModels = [
-        "gemini-3.6-flash",
         "gemini-3.5-flash",
         "gemini-3.5-flash-lite",
-        "gemini-3.7-flash",
-        "gemini-3.8-flash",
+        "gemini-3.6-flash",
       ];
 
-      const primary = activeWorkingModels.includes(requested) ? requested : "gemini-3.6-flash";
+      const primary = activeWorkingModels.includes(requested) ? requested : "gemini-3.5-flash";
       const fallbacks = [primary, ...activeWorkingModels];
       return Array.from(new Set(fallbacks));
     };
 
-    const fallbackModels = getModelFallbackList(modelName || "gemini-3.6-flash");
+    const fallbackModels = getModelFallbackList(modelName || "gemini-3.5-flash");
 
     let generatedText = "";
     let lastError: unknown = null;
 
     for (const currentModel of fallbackModels) {
       let attempts = 0;
-      const maxAttempts = 2;
+      const maxAttempts = 3;
       let modelSuccess = false;
 
       while (attempts < maxAttempts && !modelSuccess) {
         try {
           attempts++;
+          console.log(`[AI Generation] Trying model: ${currentModel} (Attempt ${attempts})`);
           const model = genAI.getGenerativeModel({ model: currentModel });
           const result = await model.generateContent({
             contents: [{ role: "user", parts }],
@@ -174,9 +173,9 @@ RULES:
         } catch (err: unknown) {
           lastError = err;
           const errMsg = err instanceof Error ? err.message : String(err);
-          console.warn(`[AI Generation] Model ${currentModel} attempt ${attempts} failed (${errMsg}). Trying fallback...`);
+          console.warn(`[AI Generation] Model ${currentModel} attempt ${attempts} failed (${errMsg}). Retrying...`);
           if (attempts < maxAttempts) {
-            await new Promise((resolve) => setTimeout(resolve, 500));
+            await new Promise((resolve) => setTimeout(resolve, 800));
           }
         }
       }
@@ -186,8 +185,12 @@ RULES:
       }
     }
 
-    if (!generatedText && lastError) {
-      throw lastError;
+    if (!generatedText) {
+      console.error("[AI Generation] All model attempts failed:", lastError);
+      return NextResponse.json(
+        { error: "AI servers are currently experiencing high traffic. Please try clicking Send again in a few seconds." },
+        { status: 503 }
+      );
     }
 
     if (existingUser.length > 0) {

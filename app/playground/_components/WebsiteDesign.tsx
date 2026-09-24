@@ -2,40 +2,11 @@
 
 import React, { useState, useMemo } from "react";
 import {
-  Code,
-  Monitor,
-  Smartphone,
-  Tablet,
   Download,
   Eye,
-  Undo2,
-  Redo2,
   FileCode,
-  Columns,
-  Server,
-  FileText,
   X,
   Zap,
-  Crosshair,
-  Rocket,
-  Layers,
-  FlaskConical,
-  Globe,
-  Puzzle,
-  Palette,
-  KeyRound,
-  Plug,
-  Database,
-  GitBranch,
-  Users,
-  Gauge,
-  Share2,
-  Brain,
-  Image as ImageIcon,
-  ShoppingBag,
-  BarChart3,
-  Sparkles,
-  ChevronDown,
 } from "lucide-react";
 import FileExplorer from "./FileExplorer";
 import ApiConsole from "./ApiConsole";
@@ -77,7 +48,7 @@ import {
   generateVanillaZip,
 } from "@/lib/frameworkExporter";
 
-interface WebsiteDesignProps {
+export interface WebsiteDesignProps {
   generatedCode: string;
   onCodeChange?: (code: string) => void;
   onCodeCommit?: (code: string) => void;
@@ -86,6 +57,20 @@ interface WebsiteDesignProps {
   canRedo?: boolean;
   onUndo?: () => void;
   onRedo?: () => void;
+  activeTab?: "preview" | "code" | "split" | "api" | "context";
+  device?: "desktop" | "tablet" | "mobile";
+  activePreviewPage?: string;
+  onPageChange?: (page: string) => void;
+  onHtmlPagesDetected?: (pages: { path: string; label: string }[]) => void;
+  isInspectMode?: boolean;
+  showBrowserDrawer?: boolean;
+  onBrowserDrawerToggle?: () => void;
+  openModalName?: string | null;
+  onCloseModal?: () => void;
+  showExportModal?: boolean;
+  onExportModalClose?: () => void;
+  showDeployModal?: boolean;
+  onDeployModalClose?: () => void;
 }
 
 const CDN_HEAD = `
@@ -184,35 +169,56 @@ function WebsiteDesign({
   canRedo,
   onUndo,
   onRedo,
+  activeTab: activeTabProp,
+  device: deviceProp,
+  activePreviewPage: activePreviewPageProp,
+  onPageChange,
+  onHtmlPagesDetected,
+  isInspectMode: isInspectModeProp,
+  showBrowserDrawer: showBrowserDrawerProp,
+  onBrowserDrawerToggle,
+  openModalName: openModalNameProp,
+  onCloseModal,
+  showExportModal: showExportModalProp,
+  onExportModalClose,
+  showDeployModal: showDeployModalProp,
+  onDeployModalClose,
 }: WebsiteDesignProps) {
-  const [activeTab, setActiveTab] = useState<"preview" | "code" | "split" | "api" | "context">("preview");
-  const [device, setDevice] = useState<"desktop" | "tablet" | "mobile">("desktop");
+  const [internalActiveTab, setInternalActiveTab] = useState<"preview" | "code" | "split" | "api" | "context">("preview");
+  const [internalDevice, setInternalDevice] = useState<"desktop" | "tablet" | "mobile">("desktop");
   const [selectedFilePath, setSelectedFilePath] = useState<string>("index.html");
-  const [activePreviewPage, setActivePreviewPage] = useState<string>("index.html");
-  const [showExportModal, setShowExportModal] = useState<boolean>(false);
-  const [showDeployModal, setShowDeployModal] = useState<boolean>(false);
-  const [showTestModal, setShowTestModal] = useState<boolean>(false);
-  const [showBrowserDrawer, setShowBrowserDrawer] = useState<boolean>(false);
-  const [showComponentModal, setShowComponentModal] = useState<boolean>(false);
-  const [showDesignSystemModal, setShowDesignSystemModal] = useState<boolean>(false);
-  const [showResponsiveModal, setShowResponsiveModal] = useState<boolean>(false);
-  const [showBackendModal, setShowBackendModal] = useState<boolean>(false);
-  const [showAuthModal, setShowAuthModal] = useState<boolean>(false);
-  const [showIntegrationsModal, setShowIntegrationsModal] = useState<boolean>(false);
-  const [showDatabaseModal, setShowDatabaseModal] = useState<boolean>(false);
-  const [showGitModal, setShowGitModal] = useState<boolean>(false);
-  const [showSwarmModal, setShowSwarmModal] = useState<boolean>(false);
-  const [showAuditModal, setShowAuditModal] = useState<boolean>(false);
-  const [showCollabModal, setShowCollabModal] = useState<boolean>(false);
-  const [showMemoryModal, setShowMemoryModal] = useState<boolean>(false);
-  const [showImageToCodeModal, setShowImageToCodeModal] = useState<boolean>(false);
-  const [showMarketplaceModal, setShowMarketplaceModal] = useState<boolean>(false);
-  const [showMonitoringModal, setShowMonitoringModal] = useState<boolean>(false);
-  const [showToolsMenu, setShowToolsMenu] = useState<boolean>(false);
-  const [isInspectMode, setIsInspectMode] = useState<boolean>(false);
+  const [internalActivePreviewPage, setInternalActivePreviewPage] = useState<string>("index.html");
+  const [internalShowExportModal, setInternalShowExportModal] = useState<boolean>(false);
+  const [internalShowDeployModal, setInternalShowDeployModal] = useState<boolean>(false);
   const [selectedElementInfo, setSelectedElementInfo] = useState<SelectedElementInfo | null>(null);
   const [isFixingErrors, setIsFixingErrors] = useState<boolean>(false);
   const [lastFixSummary, setLastFixSummary] = useState<string | null>(null);
+
+  const activeTab = activeTabProp ?? internalActiveTab;
+  const device = deviceProp ?? internalDevice;
+  const activePreviewPage = activePreviewPageProp ?? internalActivePreviewPage;
+  const isInspectMode = isInspectModeProp ?? false;
+  const showBrowserDrawer = showBrowserDrawerProp ?? false;
+
+  const showExportModal = showExportModalProp ?? internalShowExportModal;
+  const showDeployModal = showDeployModalProp ?? internalShowDeployModal;
+
+  const showComponentModal = openModalNameProp === "component";
+  const showDesignSystemModal = openModalNameProp === "designSystem";
+  const showResponsiveModal = openModalNameProp === "responsive";
+  const showBackendModal = openModalNameProp === "backend";
+  const showAuthModal = openModalNameProp === "auth";
+  const showIntegrationsModal = openModalNameProp === "integrations";
+  const showDatabaseModal = openModalNameProp === "database";
+  const showGitModal = openModalNameProp === "git";
+  const showSwarmModal = openModalNameProp === "swarm";
+  const showAuditModal = openModalNameProp === "audit";
+  const showCollabModal = openModalNameProp === "collab";
+  const showMemoryModal = openModalNameProp === "memory";
+  const showImageToCodeModal = openModalNameProp === "imageToCode";
+  const showMarketplaceModal = openModalNameProp === "marketplace";
+  const showMonitoringModal = openModalNameProp === "monitoring";
+  const showTestModal = openModalNameProp === "test";
 
   const getDeviceWidth = () => {
     switch (device) {
@@ -258,7 +264,11 @@ function WebsiteDesign({
         const targetPage = event.data.page;
         const matched = htmlPages.find((p) => p.path.toLowerCase().endsWith(targetPage.toLowerCase()));
         if (matched) {
-          setActivePreviewPage(matched.path);
+          if (onPageChange) {
+            onPageChange(matched.path);
+          } else {
+            setInternalActivePreviewPage(matched.path);
+          }
         }
       }
       if (event.data && event.data.type === 'ELEMENT_SELECTED' && event.data.element) {
@@ -267,7 +277,7 @@ function WebsiteDesign({
     };
     window.addEventListener('message', handleIframeMessages);
     return () => window.removeEventListener('message', handleIframeMessages);
-  }, [htmlPages]);
+  }, [htmlPages, onPageChange]);
 
   // Build tree representation for explorer
   const filesTree = useMemo(() => {
@@ -362,8 +372,24 @@ function WebsiteDesign({
     setTimeout(() => setLastFixSummary(null), 4000);
   };
 
+  const handleCloseExportModal = () => {
+    if (onExportModalClose) {
+      onExportModalClose();
+    } else {
+      setInternalShowExportModal(false);
+    }
+  };
+
+  const handleCloseDeployModal = () => {
+    if (onDeployModalClose) {
+      onDeployModalClose();
+    } else {
+      setInternalShowDeployModal(false);
+    }
+  };
+
   const handleExportZip = () => {
-    setShowExportModal(true);
+    setInternalShowExportModal(true);
   };
 
   const handleDownloadFrameworkZip = async (framework: "nextjs" | "react-vite" | "vanilla") => {
@@ -390,391 +416,20 @@ function WebsiteDesign({
       a.click();
       document.body.removeChild(a);
       URL.revokeObjectURL(url);
-      setShowExportModal(false);
+      handleCloseExportModal();
     } catch (err) {
       console.error("Export zip error:", err);
     }
   };
 
   return (
-    <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden bg-slate-900">
-      {/* Top Toolbar */}
-      <div className="flex shrink-0 items-center justify-between border-b border-slate-800 bg-slate-950 px-3 py-2">
-        {/* Left Section: Device Toggles, Page Switcher, Undo/Redo */}
-        <div className="flex items-center gap-2.5">
-          {/* Device Toggles */}
-          <div className="flex items-center gap-1 bg-slate-900 p-1 rounded-lg border border-slate-800">
-            <button
-              onClick={() => setDevice("desktop")}
-              disabled={activeTab === "code"}
-              title="Desktop View"
-              className={`p-1.5 rounded-md transition-all ${
-                device === "desktop" && activeTab !== "code"
-                  ? "bg-blue-600 text-white shadow-sm"
-                  : "text-slate-400 hover:text-slate-200 disabled:opacity-40"
-              }`}
-            >
-              <Monitor className="size-4" />
-            </button>
-
-            <button
-              onClick={() => setDevice("tablet")}
-              disabled={activeTab === "code"}
-              title="Tablet View"
-              className={`p-1.5 rounded-md transition-all ${
-                device === "tablet" && activeTab !== "code"
-                  ? "bg-blue-600 text-white shadow-sm"
-                  : "text-slate-400 hover:text-slate-200 disabled:opacity-40"
-              }`}
-            >
-              <Tablet className="size-4" />
-            </button>
-
-            <button
-              onClick={() => setDevice("mobile")}
-              disabled={activeTab === "code"}
-              title="Mobile View"
-              className={`p-1.5 rounded-md transition-all ${
-                device === "mobile" && activeTab !== "code"
-                  ? "bg-blue-600 text-white shadow-sm"
-                  : "text-slate-400 hover:text-slate-200 disabled:opacity-40"
-              }`}
-            >
-              <Smartphone className="size-4" />
-            </button>
-          </div>
-
-          {/* Page Switcher Dropdown */}
-          {htmlPages.length > 0 && (
-            <div className="flex items-center gap-1.5 bg-slate-900 px-2 py-1 rounded-lg border border-slate-800 text-xs">
-              <FileText className="size-3.5 text-blue-400 shrink-0" />
-              <select
-                value={activePreviewPage}
-                onChange={(e) => setActivePreviewPage(e.target.value)}
-                className="bg-slate-950 text-slate-100 text-xs font-mono font-medium px-1.5 py-0.5 rounded border border-slate-800 focus:outline-none focus:border-blue-500 cursor-pointer"
-              >
-                {htmlPages.map((page) => (
-                  <option key={page.path} value={page.path}>
-                    {page.label} ({page.path})
-                  </option>
-                ))}
-              </select>
-            </div>
-          )}
-
-          {/* Undo / Redo */}
-          <div className="flex items-center gap-0.5 border-l border-slate-800 pl-2">
-            <button
-              onClick={onUndo}
-              disabled={!canUndo}
-              title="Undo Code Change"
-              className="p-1.5 rounded-md text-slate-400 hover:text-slate-100 hover:bg-slate-800 disabled:opacity-30 transition-all"
-            >
-              <Undo2 className="size-4" />
-            </button>
-
-            <button
-              onClick={onRedo}
-              disabled={!canRedo}
-              title="Redo Code Change"
-              className="p-1.5 rounded-md text-slate-400 hover:text-slate-100 hover:bg-slate-800 disabled:opacity-30 transition-all"
-            >
-              <Redo2 className="size-4" />
-            </button>
-          </div>
-        </div>
-
-        {/* Center Section: View Switcher Tabs */}
-        <div className="flex items-center bg-slate-900 p-1 rounded-lg border border-slate-800">
-          <button
-            onClick={() => setActiveTab("preview")}
-            className={`flex items-center gap-1.5 px-3 py-1 rounded-md text-xs font-medium transition-all ${
-              activeTab === "preview"
-                ? "bg-blue-600 text-white shadow-sm font-semibold"
-                : "text-slate-400 hover:text-slate-200"
-            }`}
-          >
-            <Eye className="size-3.5" />
-            <span>Preview</span>
-          </button>
-
-          <button
-            onClick={() => setActiveTab("code")}
-            className={`flex items-center gap-1.5 px-3 py-1 rounded-md text-xs font-medium transition-all ${
-              activeTab === "code"
-                ? "bg-blue-600 text-white shadow-sm font-semibold"
-                : "text-slate-400 hover:text-slate-200"
-            }`}
-          >
-            <Code className="size-3.5" />
-            <span>Code</span>
-          </button>
-
-          <button
-            onClick={() => setActiveTab("split")}
-            className={`flex items-center gap-1.5 px-3 py-1 rounded-md text-xs font-medium transition-all ${
-              activeTab === "split"
-                ? "bg-blue-600 text-white shadow-sm font-semibold"
-                : "text-slate-400 hover:text-slate-200"
-            }`}
-          >
-            <Columns className="size-3.5" />
-            <span>Split</span>
-          </button>
-
-          <button
-            onClick={() => setActiveTab("api")}
-            className={`flex items-center gap-1.5 px-3 py-1 rounded-md text-xs font-medium transition-all ${
-              activeTab === "api"
-                ? "bg-blue-600 text-white shadow-sm font-semibold"
-                : "text-slate-400 hover:text-slate-200"
-            }`}
-          >
-            <Server className="size-3.5 text-emerald-400" />
-            <span>API</span>
-          </button>
-
-          <button
-            onClick={() => setActiveTab("context")}
-            className={`flex items-center gap-1.5 px-3 py-1 rounded-md text-xs font-medium transition-all ${
-              activeTab === "context"
-                ? "bg-blue-600 text-white shadow-sm font-semibold"
-                : "text-slate-400 hover:text-slate-200"
-            }`}
-          >
-            <Layers className="size-3.5 text-purple-400" />
-            <span>Context</span>
-          </button>
-        </div>
-
-        {/* Right Section: Inspect, Browser, AI Engines Dropdown, Export, Deploy */}
-        <div className="flex items-center gap-2">
-          {/* Visual Inspect Mode Toggle */}
-          <button
-            onClick={() => setIsInspectMode(!isInspectMode)}
-            title={isInspectMode ? "Disable Inspect Mode" : "Click-to-Edit Visual Inspector"}
-            className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium transition-all ${
-              isInspectMode
-                ? "bg-blue-600 text-white shadow-sm animate-pulse"
-                : "bg-slate-900 border border-slate-800 text-slate-300 hover:text-white hover:bg-slate-800"
-            }`}
-          >
-            <Crosshair className="size-3.5 text-blue-400" />
-            <span className="hidden xl:inline">{isInspectMode ? "Inspecting" : "Inspect"}</span>
-          </button>
-
-          {/* AI Browser Agent Drawer Toggle */}
-          <button
-            onClick={() => setShowBrowserDrawer(!showBrowserDrawer)}
-            title="AI Browser Agent Simulation"
-            className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium transition-all ${
-              showBrowserDrawer
-                ? "bg-indigo-600 text-white shadow-sm"
-                : "bg-slate-900 border border-slate-800 text-slate-300 hover:text-white hover:bg-slate-800"
-            }`}
-          >
-            <Globe className="size-3.5 text-indigo-400" />
-            <span className="hidden xl:inline">Browser</span>
-          </button>
-
-          {/* AI Engines Popover Studio Menu */}
-          <div className="relative">
-            <button
-              onClick={() => setShowToolsMenu(!showToolsMenu)}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-gradient-to-r from-indigo-950 via-slate-900 to-purple-950 border border-indigo-800/60 hover:border-indigo-600 text-xs font-semibold text-indigo-200 shadow-sm transition-all cursor-pointer"
-            >
-              <Sparkles className="size-3.5 text-purple-400 animate-pulse" />
-              <span>AI Engines</span>
-              <span className="ml-1 px-1.5 py-0.2 rounded-full bg-purple-500/20 text-purple-300 text-[10px] font-mono">16</span>
-              <ChevronDown className="size-3 text-slate-400" />
-            </button>
-
-            {/* AI Tools Popover Grid Menu */}
-            {showToolsMenu && (
-              <>
-                <div
-                  className="fixed inset-0 z-40"
-                  onClick={() => setShowToolsMenu(false)}
-                />
-                <div className="absolute right-0 top-full mt-2 w-[480px] max-w-[90vw] bg-slate-950 border border-slate-800 rounded-2xl shadow-2xl z-50 p-4 space-y-4 font-sans animate-in fade-in slide-in-from-top-2">
-                  <div className="flex items-center justify-between border-b border-slate-800/80 pb-2.5">
-                    <div className="flex items-center gap-2">
-                      <Sparkles className="size-4 text-purple-400" />
-                      <h4 className="text-xs font-bold text-slate-100 tracking-wide uppercase">AI Engines & Studio Tools</h4>
-                    </div>
-                    <button
-                      onClick={() => setShowToolsMenu(false)}
-                      className="text-slate-400 hover:text-slate-200 p-1 rounded-md hover:bg-slate-800"
-                    >
-                      <X className="size-3.5" />
-                    </button>
-                  </div>
-
-                  <div className="grid grid-cols-2 gap-3 text-xs">
-                    {/* Category 1: Design & Frontend */}
-                    <div className="space-y-1 bg-slate-900/60 p-2.5 rounded-xl border border-slate-800/60">
-                      <span className="text-[10px] font-bold text-purple-400 uppercase tracking-wider block mb-1">
-                        🎨 Design & Components
-                      </span>
-                      <button
-                        onClick={() => { setShowComponentModal(true); setShowToolsMenu(false); }}
-                        className="w-full flex items-center gap-2 p-1.5 rounded-lg hover:bg-slate-800 text-slate-300 hover:text-white transition-all text-left"
-                      >
-                        <Puzzle className="size-3.5 text-indigo-400 shrink-0" />
-                        <span>Components Library</span>
-                      </button>
-                      <button
-                        onClick={() => { setShowDesignSystemModal(true); setShowToolsMenu(false); }}
-                        className="w-full flex items-center gap-2 p-1.5 rounded-lg hover:bg-slate-800 text-slate-300 hover:text-white transition-all text-left"
-                      >
-                        <Palette className="size-3.5 text-pink-400 shrink-0" />
-                        <span>Design System Studio</span>
-                      </button>
-                      <button
-                        onClick={() => { setShowResponsiveModal(true); setShowToolsMenu(false); }}
-                        className="w-full flex items-center gap-2 p-1.5 rounded-lg hover:bg-slate-800 text-slate-300 hover:text-white transition-all text-left"
-                      >
-                        <Smartphone className="size-3.5 text-cyan-400 shrink-0" />
-                        <span>Responsive AI Agent</span>
-                      </button>
-                      <button
-                        onClick={() => { setShowImageToCodeModal(true); setShowToolsMenu(false); }}
-                        className="w-full flex items-center gap-2 p-1.5 rounded-lg hover:bg-slate-800 text-slate-300 hover:text-white transition-all text-left"
-                      >
-                        <ImageIcon className="size-3.5 text-indigo-400 shrink-0" />
-                        <span>Image / Figma to Code</span>
-                      </button>
-                      <button
-                        onClick={() => { setShowMarketplaceModal(true); setShowToolsMenu(false); }}
-                        className="w-full flex items-center gap-2 p-1.5 rounded-lg hover:bg-slate-800 text-slate-300 hover:text-white transition-all text-left"
-                      >
-                        <ShoppingBag className="size-3.5 text-amber-400 shrink-0" />
-                        <span>Template Marketplace</span>
-                      </button>
-                    </div>
-
-                    {/* Category 2: Backend & Database */}
-                    <div className="space-y-1 bg-slate-900/60 p-2.5 rounded-xl border border-slate-800/60">
-                      <span className="text-[10px] font-bold text-amber-400 uppercase tracking-wider block mb-1">
-                        ⚡ Backend & Security
-                      </span>
-                      <button
-                        onClick={() => { setShowBackendModal(true); setShowToolsMenu(false); }}
-                        className="w-full flex items-center gap-2 p-1.5 rounded-lg hover:bg-slate-800 text-slate-300 hover:text-white transition-all text-left"
-                      >
-                        <Server className="size-3.5 text-amber-400 shrink-0" />
-                        <span>AI Backend Generator</span>
-                      </button>
-                      <button
-                        onClick={() => { setShowAuthModal(true); setShowToolsMenu(false); }}
-                        className="w-full flex items-center gap-2 p-1.5 rounded-lg hover:bg-slate-800 text-slate-300 hover:text-white transition-all text-left"
-                      >
-                        <KeyRound className="size-3.5 text-emerald-400 shrink-0" />
-                        <span>AI Auth Engine</span>
-                      </button>
-                      <button
-                        onClick={() => { setShowDatabaseModal(true); setShowToolsMenu(false); }}
-                        className="w-full flex items-center gap-2 p-1.5 rounded-lg hover:bg-slate-800 text-slate-300 hover:text-white transition-all text-left"
-                      >
-                        <Database className="size-3.5 text-cyan-400 shrink-0" />
-                        <span>Visual Database Studio</span>
-                      </button>
-                      <button
-                        onClick={() => { setShowIntegrationsModal(true); setShowToolsMenu(false); }}
-                        className="w-full flex items-center gap-2 p-1.5 rounded-lg hover:bg-slate-800 text-slate-300 hover:text-white transition-all text-left"
-                      >
-                        <Plug className="size-3.5 text-blue-400 shrink-0" />
-                        <span>API Integrations</span>
-                      </button>
-                    </div>
-
-                    {/* Category 3: Multi-Agent & Collab */}
-                    <div className="space-y-1 bg-slate-900/60 p-2.5 rounded-xl border border-slate-800/60">
-                      <span className="text-[10px] font-bold text-cyan-400 uppercase tracking-wider block mb-1">
-                        🤖 Swarm & Intelligence
-                      </span>
-                      <button
-                        onClick={() => { setShowSwarmModal(true); setShowToolsMenu(false); }}
-                        className="w-full flex items-center gap-2 p-1.5 rounded-lg hover:bg-slate-800 text-slate-300 hover:text-white transition-all text-left"
-                      >
-                        <Users className="size-3.5 text-purple-400 shrink-0" />
-                        <span>Multi-Agent Swarm</span>
-                      </button>
-                      <button
-                        onClick={() => { setShowMemoryModal(true); setShowToolsMenu(false); }}
-                        className="w-full flex items-center gap-2 p-1.5 rounded-lg hover:bg-slate-800 text-slate-300 hover:text-white transition-all text-left"
-                      >
-                        <Brain className="size-3.5 text-pink-400 shrink-0" />
-                        <span>Project Memory Engine</span>
-                      </button>
-                      <button
-                        onClick={() => { setShowCollabModal(true); setShowToolsMenu(false); }}
-                        className="w-full flex items-center gap-2 p-1.5 rounded-lg hover:bg-slate-800 text-slate-300 hover:text-white transition-all text-left"
-                      >
-                        <Share2 className="size-3.5 text-blue-400 shrink-0" />
-                        <span>Real-Time Live Share</span>
-                      </button>
-                    </div>
-
-                    {/* Category 4: DevOps & Analytics */}
-                    <div className="space-y-1 bg-slate-900/60 p-2.5 rounded-xl border border-slate-800/60">
-                      <span className="text-[10px] font-bold text-emerald-400 uppercase tracking-wider block mb-1">
-                        🚀 DevOps & Quality
-                      </span>
-                      <button
-                        onClick={() => { setShowGitModal(true); setShowToolsMenu(false); }}
-                        className="w-full flex items-center gap-2 p-1.5 rounded-lg hover:bg-slate-800 text-slate-300 hover:text-white transition-all text-left"
-                      >
-                        <GitBranch className="size-3.5 text-emerald-400 shrink-0" />
-                        <span>Git Version Agent</span>
-                      </button>
-                      <button
-                        onClick={() => { setShowAuditModal(true); setShowToolsMenu(false); }}
-                        className="w-full flex items-center gap-2 p-1.5 rounded-lg hover:bg-slate-800 text-slate-300 hover:text-white transition-all text-left"
-                      >
-                        <Gauge className="size-3.5 text-emerald-400 shrink-0" />
-                        <span>Performance & SEO Audit</span>
-                      </button>
-                      <button
-                        onClick={() => { setShowTestModal(true); setShowToolsMenu(false); }}
-                        className="w-full flex items-center gap-2 p-1.5 rounded-lg hover:bg-slate-800 text-slate-300 hover:text-white transition-all text-left"
-                      >
-                        <FlaskConical className="size-3.5 text-emerald-400 shrink-0" />
-                        <span>AI Test Suite</span>
-                      </button>
-                      <button
-                        onClick={() => { setShowMonitoringModal(true); setShowToolsMenu(false); }}
-                        className="w-full flex items-center gap-2 p-1.5 rounded-lg hover:bg-slate-800 text-slate-300 hover:text-white transition-all text-left"
-                      >
-                        <BarChart3 className="size-3.5 text-emerald-400 shrink-0" />
-                        <span>Analytics Dashboard</span>
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              </>
-            )}
-          </div>
-
-          {/* Export ZIP */}
-          <button
-            onClick={handleExportZip}
-            className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-900 hover:bg-slate-800 text-slate-200 text-xs font-medium rounded-lg transition-all shadow-sm border border-slate-800"
-          >
-            <Download className="size-3.5" />
-            <span className="hidden sm:inline">Export ZIP</span>
-          </button>
-
-          {/* Live Deploy */}
-          <button
-            onClick={() => setShowDeployModal(true)}
-            className="flex items-center gap-1.5 px-3.5 py-1.5 bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 hover:from-blue-500 hover:to-purple-500 text-white text-xs font-semibold rounded-lg transition-all shadow-md shadow-blue-500/20"
-          >
-            <Rocket className="size-3.5" />
-            <span>Live Deploy</span>
-          </button>
-        </div>
-      </div>
+    <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden bg-slate-950">
+      <ErrorMonitorBanner
+        issues={detectedIssues}
+        onFixAll={handleAutoFix}
+        isFixing={isFixingErrors}
+        lastFixSummary={lastFixSummary}
+      />
 
       {/* Workspace Content */}
       <div className="flex min-h-0 min-w-0 flex-1 overflow-hidden bg-slate-950">
@@ -890,7 +545,7 @@ function WebsiteDesign({
                 <h3 className="font-bold text-sm text-slate-100">Export Project Framework</h3>
               </div>
               <button
-                onClick={() => setShowExportModal(false)}
+                onClick={handleCloseExportModal}
                 className="text-slate-400 hover:text-slate-200 p-1 rounded hover:bg-slate-800"
               >
                 <X className="size-4" />
@@ -974,7 +629,7 @@ function WebsiteDesign({
         <BrowserAgentDrawer
           filesMap={filesMap}
           activePage={activePreviewPage}
-          onClose={() => setShowBrowserDrawer(false)}
+          onClose={() => onBrowserDrawerToggle?.()}
         />
       )}
 
@@ -983,7 +638,7 @@ function WebsiteDesign({
         <DeployModal
           projectId={activePreviewPage}
           filesCount={Object.keys(filesMap).length}
-          onClose={() => setShowDeployModal(false)}
+          onClose={handleCloseDeployModal}
         />
       )}
 
@@ -991,7 +646,7 @@ function WebsiteDesign({
       {showTestModal && (
         <TestingAgentModal
           filesMap={filesMap}
-          onClose={() => setShowTestModal(false)}
+          onClose={() => onCloseModal?.()}
           onApplyFixes={(fixedMap) => {
             const serialized = serializeMultiFiles(fixedMap);
             onCodeChange?.(serialized);
@@ -1004,13 +659,13 @@ function WebsiteDesign({
       {showComponentModal && (
         <ComponentLibraryModal
           filesMap={filesMap}
-          onClose={() => setShowComponentModal(false)}
+          onClose={() => onCloseModal?.()}
           onInsertComponent={(targetPage, snippet) => {
             const updatedMap = insertComponentInstance(filesMap, targetPage, snippet);
             const serialized = serializeMultiFiles(updatedMap);
             onCodeChange?.(serialized);
             handleCommit(serialized);
-            setShowComponentModal(false);
+            onCloseModal?.();
           }}
         />
       )}
@@ -1019,7 +674,7 @@ function WebsiteDesign({
       {showDesignSystemModal && (
         <DesignSystemModal
           filesMap={filesMap}
-          onClose={() => setShowDesignSystemModal(false)}
+          onClose={() => onCloseModal?.()}
           onApplyDesignSystem={(updatedMap) => {
             const serialized = serializeMultiFiles(updatedMap);
             onCodeChange?.(serialized);
@@ -1032,7 +687,7 @@ function WebsiteDesign({
       {showResponsiveModal && (
         <ResponsiveAgentModal
           isOpen={showResponsiveModal}
-          onClose={() => setShowResponsiveModal(false)}
+          onClose={() => onCloseModal?.()}
           htmlCode={activeFileContent || generatedCode}
           onApplyFixedCode={(fixedHtml) => {
             handleFileContentChange(activeFilePath, fixedHtml);
@@ -1046,7 +701,7 @@ function WebsiteDesign({
         <BackendGeneratorModal
           filesMap={filesMap}
           isOpen={showBackendModal}
-          onClose={() => setShowBackendModal(false)}
+          onClose={() => onCloseModal?.()}
           onInsertEndpoint={(updatedFilesMap, addedPath) => {
             const serialized = serializeMultiFiles(updatedFilesMap);
             onCodeChange?.(serialized);
@@ -1061,7 +716,7 @@ function WebsiteDesign({
         <AuthGeneratorModal
           filesMap={filesMap}
           isOpen={showAuthModal}
-          onClose={() => setShowAuthModal(false)}
+          onClose={() => onCloseModal?.()}
           onApplyAuth={(updatedFilesMap) => {
             const serialized = serializeMultiFiles(updatedFilesMap);
             onCodeChange?.(serialized);
@@ -1075,7 +730,7 @@ function WebsiteDesign({
         <IntegrationsModal
           filesMap={filesMap}
           isOpen={showIntegrationsModal}
-          onClose={() => setShowIntegrationsModal(false)}
+          onClose={() => onCloseModal?.()}
           onApplyIntegration={(updatedFilesMap, addedPath) => {
             const serialized = serializeMultiFiles(updatedFilesMap);
             onCodeChange?.(serialized);
@@ -1090,7 +745,7 @@ function WebsiteDesign({
         <DatabaseStudioModal
           filesMap={filesMap}
           isOpen={showDatabaseModal}
-          onClose={() => setShowDatabaseModal(false)}
+          onClose={() => onCloseModal?.()}
           onApplySchema={(updatedFilesMap, addedPath) => {
             const serialized = serializeMultiFiles(updatedFilesMap);
             onCodeChange?.(serialized);
@@ -1105,7 +760,7 @@ function WebsiteDesign({
         <GitVersionModal
           filesMap={filesMap}
           isOpen={showGitModal}
-          onClose={() => setShowGitModal(false)}
+          onClose={() => onCloseModal?.()}
           onRestoreSnapshot={(restoredFilesMap) => {
             const serialized = serializeMultiFiles(restoredFilesMap);
             onCodeChange?.(serialized);
@@ -1119,7 +774,7 @@ function WebsiteDesign({
         <MultiAgentSwarmModal
           filesMap={filesMap}
           isOpen={showSwarmModal}
-          onClose={() => setShowSwarmModal(false)}
+          onClose={() => onCloseModal?.()}
           onApplySwarmUpdates={(updatedFilesMap) => {
             const serialized = serializeMultiFiles(updatedFilesMap);
             onCodeChange?.(serialized);
@@ -1134,7 +789,7 @@ function WebsiteDesign({
           filesMap={filesMap}
           htmlCode={activeFileContent || generatedCode}
           isOpen={showAuditModal}
-          onClose={() => setShowAuditModal(false)}
+          onClose={() => onCloseModal?.()}
           onApplyFixedCode={(fixedHtml) => {
             handleFileContentChange(activeFilePath, fixedHtml);
             handleFileContentCommit(activeFilePath, fixedHtml);
@@ -1147,7 +802,7 @@ function WebsiteDesign({
         <CollaborationModal
           filesMap={filesMap}
           isOpen={showCollabModal}
-          onClose={() => setShowCollabModal(false)}
+          onClose={() => onCloseModal?.()}
         />
       )}
 
@@ -1155,7 +810,7 @@ function WebsiteDesign({
       {showMemoryModal && (
         <ProjectMemoryModal
           isOpen={showMemoryModal}
-          onClose={() => setShowMemoryModal(false)}
+          onClose={() => onCloseModal?.()}
         />
       )}
 
@@ -1163,7 +818,7 @@ function WebsiteDesign({
       {showImageToCodeModal && (
         <ImageToCodeModal
           isOpen={showImageToCodeModal}
-          onClose={() => setShowImageToCodeModal(false)}
+          onClose={() => onCloseModal?.()}
           onApplyGeneratedCode={(htmlCode) => {
             handleFileContentChange(activeFilePath, htmlCode);
             handleFileContentCommit(activeFilePath, htmlCode);
@@ -1176,7 +831,7 @@ function WebsiteDesign({
         <MarketplaceModal
           filesMap={filesMap}
           isOpen={showMarketplaceModal}
-          onClose={() => setShowMarketplaceModal(false)}
+          onClose={() => onCloseModal?.()}
           onApplyMarketplaceItem={(updatedFilesMap) => {
             const serialized = serializeMultiFiles(updatedFilesMap);
             onCodeChange?.(serialized);
@@ -1189,7 +844,7 @@ function WebsiteDesign({
       {showMonitoringModal && (
         <MonitoringDashboardModal
           isOpen={showMonitoringModal}
-          onClose={() => setShowMonitoringModal(false)}
+          onClose={() => onCloseModal?.()}
         />
       )}
 

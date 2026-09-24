@@ -143,3 +143,14 @@
     --sidebar-ring: oklch(0.439 0 0);
   }
 }
+
+/* Hide Next.js Dev Indicator badge & dev portal elements */
+nextjs-portal,
+#next-dev-indicator,
+[data-nextjs-toast],
+[data-nextjs-dialog-overlay] {
+  display: none !important;
+  visibility: hidden !important;
+  opacity: 0 !important;
+  pointer-events: none !important;
+}

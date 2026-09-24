@@ -38,7 +38,7 @@ export function sanitizeHtmlContent(html: string): string {
   // 1. Check if the HTML contains a nested iframe srcdoc wrapper
   const iframeSrcdocMatch = html.match(/<iframe[^>]*\bsrcdoc=["']([\s\S]*?)["'][^>]*>/i);
   if (iframeSrcdocMatch && iframeSrcdocMatch[1]) {
-    let unescaped = iframeSrcdocMatch[1]
+    const unescaped = iframeSrcdocMatch[1]
       .replace(/&quot;/g, '"')
       .replace(/&lt;/g, '<')
       .replace(/&gt;/g, '>')

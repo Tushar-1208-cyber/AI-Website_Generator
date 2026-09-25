@@ -64,17 +64,38 @@ function ChatSection({ Messages, onSend, loading }: ChatSectionProps) {
     <div className='flex h-2/5 min-h-0 w-full shrink-0 flex-col overflow-hidden border-b bg-slate-950 text-slate-100 shadow md:h-full md:w-[390px] md:border-b-0 md:border-r border-slate-800 font-sans'>
       {/* Messages Header */}
       <div className="px-4 py-3 border-b border-slate-800 bg-slate-900/60 flex items-center justify-between">
-        <span className="text-xs font-bold uppercase tracking-wider text-slate-300">AI Assistant</span>
-        <span className="text-[10px] bg-blue-600/30 text-blue-400 border border-blue-500/40 px-2 py-0.5 rounded font-mono">
-          Gemini 3.6
+        <div className="flex items-center gap-2">
+          <span className="size-2 rounded-full bg-emerald-500 animate-pulse shadow-xs shadow-emerald-500/50" />
+          <span className="text-xs font-bold uppercase tracking-wider text-slate-300">AI Assistant</span>
+        </div>
+        <span className="text-[10px] bg-blue-600/20 text-blue-400 border border-blue-500/30 px-2 py-0.5 rounded-full font-mono flex items-center gap-1">
+          <span>Gemini 3.5 Flash</span>
         </span>
       </div>
 
       {/* Message List Section */}
       <div className='flex min-h-0 flex-1 flex-col space-y-3 overflow-y-auto p-4 scrollbar-thin scrollbar-thumb-slate-800'>
         {Messages?.length === 0 ? (
-          <div className="h-full flex flex-col items-center justify-center text-slate-500 gap-2 p-4 text-center">
-            <p className='text-xs'>Ask the AI to modify designs, add features, or refactor code.</p>
+          <div className="h-full flex flex-col items-center justify-center text-slate-500 gap-3 p-4 text-center">
+            <p className='text-xs text-slate-400 font-medium'>What would you like to build or modify today?</p>
+            <div className="grid grid-cols-1 gap-1.5 w-full max-w-xs text-left">
+              {[
+                "🚀 Dark SaaS Product Landing Page",
+                "👟 E-Commerce Storefront with Cart",
+                "📊 Analytics & Crypto Dashboard",
+                "🎨 Creative Agency Studio Portfolio"
+              ].map((chip) => (
+                <button
+                  key={chip}
+                  onClick={() => {
+                    setInput(chip);
+                  }}
+                  className="text-[11px] px-3 py-1.5 rounded-xl bg-slate-900/80 border border-slate-800 text-slate-300 hover:text-white hover:bg-slate-800/80 hover:border-blue-500/40 transition-all text-left"
+                >
+                  {chip}
+                </button>
+              ))}
+            </div>
           </div>
         ) : (
           Messages?.map((message, index) => (
@@ -118,26 +139,29 @@ function ChatSection({ Messages, onSend, loading }: ChatSectionProps) {
 
         <QuickRefactorBar onSelectAction={handleQuickRefactorAction} disabled={loading} />
 
-        <div className="flex items-center gap-2">
-          <textarea
-            value={input}
-            placeholder='Type modification request...'
-            className='flex-1 resize-none border border-slate-800 bg-slate-950 text-slate-100 text-xs rounded-xl px-3 py-2 focus:outline-none focus:border-blue-500 h-12 leading-relaxed'
-            onChange={(event) => setInput(event.target.value)}
-            onKeyDown={(event) => {
-              if (event.key === 'Enter' && !event.shiftKey) {
-                event.preventDefault();
-                handleSendMessage();
-              }
-            }}
-          />
-          <Button
-            onClick={handleSendMessage}
-            disabled={loading || !input.trim()}
-            className="bg-blue-600 hover:bg-blue-500 text-white rounded-xl h-12 px-3 shadow-md shadow-blue-500/20 disabled:opacity-40"
-          >
-            <ArrowUp className="size-4" />
-          </Button>
+        <div className="flex flex-col gap-1">
+          <div className="flex items-center gap-2">
+            <textarea
+              value={input}
+              placeholder='Type modification request...'
+              className='flex-1 resize-none border border-slate-800 bg-slate-950 text-slate-100 text-xs rounded-xl px-3 py-2.5 focus:outline-none focus:border-blue-500 h-12 leading-relaxed'
+              onChange={(event) => setInput(event.target.value)}
+              onKeyDown={(event) => {
+                if (event.key === 'Enter' && !event.shiftKey) {
+                  event.preventDefault();
+                  handleSendMessage();
+                }
+              }}
+            />
+            <Button
+              onClick={handleSendMessage}
+              disabled={loading || !input.trim()}
+              className="bg-blue-600 hover:bg-blue-500 text-white rounded-xl h-12 px-3 shadow-md shadow-blue-500/20 disabled:opacity-40"
+            >
+              <ArrowUp className="size-4" />
+            </Button>
+          </div>
+          <p className="text-[10px] text-slate-500 text-right px-1">Press ↵ to send • Shift + ↵ for line break</p>
         </div>
       </div>
     </div>

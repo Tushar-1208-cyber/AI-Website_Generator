@@ -489,7 +489,7 @@ function WebsiteDesign({
         {/* Live Preview View */}
         {(activeTab === "preview" || activeTab === "split") && (
           <div
-            className={`flex min-h-0 min-w-0 flex-1 justify-center overflow-hidden p-3 ${
+            className={`flex min-h-0 min-w-0 flex-1 justify-center overflow-hidden p-3 bg-slate-950 bg-[radial-gradient(#1e293b_1px,transparent_1px)] [background-size:16px_16px] ${
               activeTab === "split" ? "w-1/2" : "w-full"
             }`}
           >

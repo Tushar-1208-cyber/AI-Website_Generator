@@ -153,3 +153,18 @@ export function createVirtualCommit(
     newCommit,
   };
 }
+
+/**
+ * Creates a new virtual branch in the version tree
+ */
+export function createVirtualBranch(
+  branches: VirtualBranch[],
+  newBranchName: string,
+  headCommitHash: string
+): VirtualBranch[] {
+  const cleanName = newBranchName.trim().replace(/\s+/g, '-').toLowerCase();
+  if (!cleanName || branches.some((b) => b.name === cleanName)) return branches;
+
+  const updated = branches.map((b) => ({ ...b, isCurrent: false }));
+  return [...updated, { name: cleanName, isCurrent: true, headCommitHash }];
+}

@@ -12,6 +12,11 @@ import {
   Palette,
   Check,
   Zap,
+  Box,
+  Eye,
+  AlignLeft,
+  AlignCenter,
+  AlignRight,
 } from "lucide-react";
 
 interface VisualBuilderPanelProps {
@@ -78,33 +83,67 @@ export default function VisualBuilderPanel({
           </div>
         </div>
 
-        {/* Alignment */}
+        {/* Text Alignment */}
         <div>
           <label className="text-[10px] text-slate-400 block mb-1">Text Alignment</label>
           <div className="flex items-center gap-1 bg-slate-900 p-1 rounded-lg border border-slate-800">
-            {["text-left", "text-center", "text-right"].map((align) => (
+            {[
+              { val: "text-left", icon: AlignLeft },
+              { val: "text-center", icon: AlignCenter },
+              { val: "text-right", icon: AlignRight },
+            ].map(({ val, icon: Icon }) => (
               <button
-                key={align}
+                key={val}
                 type="button"
-                onClick={() => handleChange("textAlign", align)}
-                className={`flex-1 py-1 rounded text-[11px] font-medium transition-all ${
-                  styles.textAlign === align
+                onClick={() => handleChange("textAlign", val)}
+                className={`flex-1 py-1 rounded text-[11px] font-medium transition-all flex items-center justify-center gap-1 ${
+                  styles.textAlign === val
                     ? "bg-blue-600 text-white shadow-xs"
                     : "text-slate-400 hover:text-slate-200"
                 }`}
               >
-                {align.replace("text-", "").toUpperCase()}
+                <Icon className="size-3" />
+                {val.replace("text-", "").toUpperCase()}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Text Color Quick Pills */}
+        <div>
+          <label className="text-[10px] text-slate-400 block mb-1">Text Color</label>
+          <div className="flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-none">
+            {[
+              { label: "White", val: "text-white" },
+              { label: "Slate", val: "text-slate-300" },
+              { label: "Blue", val: "text-blue-400" },
+              { label: "Indigo", val: "text-indigo-400" },
+              { label: "Emerald", val: "text-emerald-400" },
+              { label: "Amber", val: "text-amber-400" },
+            ].map((c) => (
+              <button
+                key={c.val}
+                type="button"
+                onClick={() => handleChange("textColor", c.val)}
+                className={`text-[10px] px-2 py-0.5 rounded-md border transition-all shrink-0 flex items-center gap-1 ${
+                  styles.textColor === c.val
+                    ? "bg-slate-800 border-blue-400 text-white font-bold"
+                    : "bg-slate-900 border-slate-800 text-slate-400 hover:text-slate-200"
+                }`}
+              >
+                {styles.textColor === c.val && <Check className="size-2.5 text-blue-400" />}
+                {c.label}
               </button>
             ))}
           </div>
         </div>
       </div>
 
-      {/* 2. Layout & Flex Section */}
+      {/* 2. Layout & Flexbox Section */}
       <div className="bg-slate-950 p-3 rounded-xl border border-slate-800 space-y-2.5">
         <div className="flex items-center gap-1.5 font-bold text-slate-300">
           <LayoutGrid className="size-3.5 text-purple-400" />
-          <span>Layout & Flex</span>
+          <span>Layout & Flexbox</span>
         </div>
 
         <div className="grid grid-cols-2 gap-2">
@@ -120,17 +159,34 @@ export default function VisualBuilderPanel({
               <option value="flex">Flexbox</option>
               <option value="grid">Grid</option>
               <option value="inline-block">Inline Block</option>
+              <option value="hidden">Hidden</option>
             </select>
           </div>
 
+          {/* Flex Direction */}
+          {styles.display === "flex" && (
+            <div>
+              <label className="text-[10px] text-slate-400 block mb-1">Flex Direction</label>
+              <select
+                value={styles.flexDirection}
+                onChange={(e) => handleChange("flexDirection", e.target.value)}
+                className="w-full bg-slate-900 border border-slate-800 text-slate-200 text-xs rounded-lg px-2 py-1 focus:outline-none focus:border-purple-500"
+              >
+                <option value="flex-row">Row (Horizontal)</option>
+                <option value="flex-col">Column (Vertical)</option>
+              </select>
+            </div>
+          )}
+
           {/* Gap */}
           <div>
-            <label className="text-[10px] text-slate-400 block mb-1">Flex/Grid Gap</label>
+            <label className="text-[10px] text-slate-400 block mb-1">Gap</label>
             <select
               value={styles.gap}
               onChange={(e) => handleChange("gap", e.target.value)}
               className="w-full bg-slate-900 border border-slate-800 text-slate-200 text-xs rounded-lg px-2 py-1 focus:outline-none focus:border-purple-500"
             >
+              <option value="gap-0">Gap 0</option>
               <option value="gap-1">Gap 1 (4px)</option>
               <option value="gap-2">Gap 2 (8px)</option>
               <option value="gap-4">Gap 4 (16px)</option>
@@ -138,17 +194,49 @@ export default function VisualBuilderPanel({
               <option value="gap-8">Gap 8 (32px)</option>
             </select>
           </div>
+
+          {/* Align Items */}
+          {styles.display === "flex" && (
+            <div>
+              <label className="text-[10px] text-slate-400 block mb-1">Align Items</label>
+              <select
+                value={styles.alignItems}
+                onChange={(e) => handleChange("alignItems", e.target.value)}
+                className="w-full bg-slate-900 border border-slate-800 text-slate-200 text-xs rounded-lg px-2 py-1 focus:outline-none focus:border-purple-500"
+              >
+                <option value="items-start">Start</option>
+                <option value="items-center">Center</option>
+                <option value="items-end">End</option>
+                <option value="items-stretch">Stretch</option>
+              </select>
+            </div>
+          )}
         </div>
       </div>
 
-      {/* 3. Appearance & Colors Section */}
+      {/* 3. Appearance, Borders & Shadows */}
       <div className="bg-slate-950 p-3 rounded-xl border border-slate-800 space-y-2.5">
         <div className="flex items-center gap-1.5 font-bold text-slate-300">
           <Palette className="size-3.5 text-emerald-400" />
-          <span>Appearance & Radius</span>
+          <span>Appearance & Borders</span>
         </div>
 
         <div className="grid grid-cols-2 gap-2">
+          {/* Border Style */}
+          <div>
+            <label className="text-[10px] text-slate-400 block mb-1">Border</label>
+            <select
+              value={styles.border}
+              onChange={(e) => handleChange("border", e.target.value)}
+              className="w-full bg-slate-900 border border-slate-800 text-slate-200 text-xs rounded-lg px-2 py-1 focus:outline-none focus:border-emerald-500"
+            >
+              <option value="border-none">None</option>
+              <option value="border">Thin (1px)</option>
+              <option value="border-2">Medium (2px)</option>
+              <option value="border-4">Thick (4px)</option>
+            </select>
+          </div>
+
           {/* Border Radius */}
           <div>
             <label className="text-[10px] text-slate-400 block mb-1">Border Radius</label>
@@ -177,7 +265,23 @@ export default function VisualBuilderPanel({
               <option value="shadow-sm">Small Shadow</option>
               <option value="shadow-md">Medium Shadow</option>
               <option value="shadow-lg">Large Shadow</option>
-              <option value="shadow-2xl">Extra Glow Shadow</option>
+              <option value="shadow-2xl">Extra Glow</option>
+            </select>
+          </div>
+
+          {/* Opacity */}
+          <div>
+            <label className="text-[10px] text-slate-400 block mb-1">Opacity</label>
+            <select
+              value={styles.opacity}
+              onChange={(e) => handleChange("opacity", e.target.value)}
+              className="w-full bg-slate-900 border border-slate-800 text-slate-200 text-xs rounded-lg px-2 py-1 focus:outline-none focus:border-emerald-500"
+            >
+              <option value="opacity-100">100% Solid</option>
+              <option value="opacity-90">90%</option>
+              <option value="opacity-75">75%</option>
+              <option value="opacity-50">50%</option>
+              <option value="opacity-25">25% Transparent</option>
             </select>
           </div>
         </div>
@@ -185,7 +289,7 @@ export default function VisualBuilderPanel({
         {/* Background Color Quick Pills */}
         <div>
           <label className="text-[10px] text-slate-400 block mb-1">Background Color</label>
-          <div className="flex items-center gap-1.5 overflow-x-auto pb-1">
+          <div className="flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-none">
             {[
               { label: "Dark", val: "bg-slate-900" },
               { label: "Blue", val: "bg-blue-600" },
@@ -193,6 +297,7 @@ export default function VisualBuilderPanel({
               { label: "Emerald", val: "bg-emerald-600" },
               { label: "Purple", val: "bg-purple-600" },
               { label: "Amber", val: "bg-amber-600" },
+              { label: "Clear", val: "bg-transparent" },
             ].map((c) => (
               <button
                 key={c.val}
@@ -216,7 +321,7 @@ export default function VisualBuilderPanel({
       <button
         type="button"
         onClick={() => onApplyStyles(styles)}
-        className="w-full py-2 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white text-xs font-bold rounded-xl shadow-md shadow-blue-500/20 flex items-center justify-center gap-1.5 transition-all"
+        className="w-full py-2.5 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white text-xs font-bold rounded-xl shadow-md shadow-blue-500/20 flex items-center justify-center gap-1.5 transition-all"
       >
         <Zap className="size-3.5 fill-current" />
         <span>Apply Visual Styles to Source Code</span>

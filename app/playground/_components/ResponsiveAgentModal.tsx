@@ -14,11 +14,14 @@ import {
 } from 'lucide-react';
 import {
   analyzeResponsiveness,
+  analyzeProjectResponsiveness,
   autoFixResponsiveness,
+  autoFixProjectResponsiveness,
   ResponsiveIssue,
 } from '@/lib/responsiveAgentEngine';
 
 interface ResponsiveAgentModalProps {
+  filesMap?: Record<string, string>;
   isOpen: boolean;
   onClose: () => void;
   htmlCode: string;
@@ -26,6 +29,7 @@ interface ResponsiveAgentModalProps {
 }
 
 export default function ResponsiveAgentModal({
+  filesMap,
   isOpen,
   onClose,
   htmlCode,
@@ -39,19 +43,30 @@ export default function ResponsiveAgentModal({
   const activeHtml = fixedHtmlState || htmlCode;
 
   const analysis = useMemo(() => {
-    if (!isOpen || !activeHtml) return null;
+    if (!isOpen) return null;
+    if (filesMap && Object.keys(filesMap).length > 0) {
+      return analyzeProjectResponsiveness(filesMap);
+    }
     return analyzeResponsiveness(activeHtml);
-  }, [isOpen, activeHtml]);
+  }, [isOpen, activeHtml, filesMap]);
 
   if (!isOpen) return null;
 
   const handleAutoFix = () => {
     setIsFixing(true);
     setTimeout(() => {
-      const { fixedHtml, fixesApplied } = autoFixResponsiveness(activeHtml);
-      onApplyFixedCode(fixedHtml);
-      setFixedHtmlState(fixedHtml);
-      setAppliedFixes(fixesApplied);
+      if (filesMap && Object.keys(filesMap).length > 0) {
+        const { updatedFilesMap, fixesApplied } = autoFixProjectResponsiveness(filesMap);
+        const mainCode = updatedFilesMap['index.html'] || updatedFilesMap['App.jsx'] || Object.values(updatedFilesMap)[0] || activeHtml;
+        onApplyFixedCode(mainCode);
+        setFixedHtmlState(mainCode);
+        setAppliedFixes(fixesApplied);
+      } else {
+        const { fixedHtml, fixesApplied } = autoFixResponsiveness(activeHtml);
+        onApplyFixedCode(fixedHtml);
+        setFixedHtmlState(fixedHtml);
+        setAppliedFixes(fixesApplied);
+      }
       setIsFixing(false);
     }, 600);
   };
@@ -68,7 +83,7 @@ export default function ResponsiveAgentModal({
   }) || [];
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4 font-sans">
       <div className="bg-slate-900 border border-slate-800 rounded-2xl w-full max-w-4xl max-h-[90vh] flex flex-col shadow-2xl overflow-hidden">
         {/* Header */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-slate-800 bg-slate-950">
@@ -80,7 +95,7 @@ export default function ResponsiveAgentModal({
               <h2 className="text-lg font-semibold text-white flex items-center gap-2">
                 Responsive AI Agent
                 <span className="text-xs px-2 py-0.5 rounded-full bg-indigo-500/20 text-indigo-300 font-medium">
-                  Phase 9
+                  Multi-Viewport Audit
                 </span>
               </h2>
               <p className="text-xs text-slate-400">
@@ -97,7 +112,7 @@ export default function ResponsiveAgentModal({
         </div>
 
         {/* Content Body */}
-        <div className="flex-1 overflow-y-auto p-6 space-y-6">
+        <div className="flex-1 overflow-y-auto p-6 space-y-6 scrollbar-thin scrollbar-thumb-slate-800">
           {/* Audit Score Banner */}
           {analysis && (
             <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
@@ -237,6 +252,11 @@ export default function ResponsiveAgentModal({
                       >
                         {issue.severity}
                       </span>
+                      {issue.filePath && (
+                        <span className="text-[10px] font-mono text-indigo-400 bg-slate-900 px-1.5 py-0.5 rounded border border-slate-800">
+                          {issue.filePath}
+                        </span>
+                      )}
                     </div>
                     <p className="text-xs text-slate-400">
                       <strong className="text-slate-300">Target Element:</strong> {issue.elementSelector}

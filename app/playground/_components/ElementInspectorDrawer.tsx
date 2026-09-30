@@ -2,7 +2,7 @@
 
 import React, { useState } from "react";
 import { SelectedElementInfo } from "@/lib/elementInspector";
-import { Crosshair, X, Send, Tag, Sliders, Sparkles } from "lucide-react";
+import { Crosshair, X, Send, Tag, Sliders, Sparkles, Code, Copy, Check, Info } from "lucide-react";
 import VisualBuilderPanel from "./VisualBuilderPanel";
 import { VisualElementStyles, buildTailwindClasses } from "@/lib/visualBuilderEngine";
 
@@ -17,14 +17,19 @@ export default function ElementInspectorDrawer({
   onClose,
   onSubmitPrompt,
 }: ElementInspectorDrawerProps) {
-  const [activeTab, setActiveTab] = useState<"ai" | "visual">("ai");
+  const [activeTab, setActiveTab] = useState<"ai" | "visual" | "css">("ai");
   const [promptInput, setPromptInput] = useState<string>("");
+  const [copiedKey, setCopiedKey] = useState<string | null>(null);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!promptInput.trim()) return;
 
-    const fullPrompt = `Modify the <${selectedElement.tagName}> element (text: "${selectedElement.textSnippet}"): ${promptInput.trim()}`;
+    const stylesContext = selectedElement.styles
+      ? ` Current computed styles: font-size=${selectedElement.styles.fontSize || "auto"}, color=${selectedElement.styles.color || "auto"}, bg=${selectedElement.styles.backgroundColor || "transparent"}.`
+      : "";
+
+    const fullPrompt = `Modify the <${selectedElement.tagName}> element (text: "${selectedElement.textSnippet}"):${stylesContext} ${promptInput.trim()}`;
     onSubmitPrompt(fullPrompt);
     setPromptInput("");
   };
@@ -39,6 +44,16 @@ export default function ElementInspectorDrawer({
     const fullPrompt = `Update the <${selectedElement.tagName}> element's CSS classes to: "${tailwindClasses}"`;
     onSubmitPrompt(fullPrompt);
   };
+
+  const handleCopyStyle = (key: string, value: string) => {
+    navigator.clipboard.writeText(`${key}: ${value};`);
+    setCopiedKey(key);
+    setTimeout(() => setCopiedKey(null), 1500);
+  };
+
+  const computedStylesList = selectedElement.styles
+    ? Object.entries(selectedElement.styles).filter(([_, value]) => Boolean(value))
+    : [];
 
   return (
     <div className="fixed bottom-6 right-6 z-50 w-80 md:w-96 max-h-[80vh] overflow-y-auto bg-slate-900 border border-slate-800 rounded-3xl shadow-2xl p-4 text-slate-100 font-sans animate-in slide-in-from-bottom-5 duration-200 scrollbar-thin scrollbar-thumb-slate-800">
@@ -59,14 +74,22 @@ export default function ElementInspectorDrawer({
       </div>
 
       {/* Selected Element Badge */}
-      <div className="bg-slate-950 p-2.5 rounded-xl border border-slate-800 mb-3">
-        <div className="flex items-center gap-1.5 mb-1">
-          <Tag className="size-3 text-blue-400" />
-          <span className="text-[11px] font-mono font-bold text-blue-400 uppercase">
-            &lt;{selectedElement.tagName}&gt;
-          </span>
-          {selectedElement.id && (
-            <span className="text-[10px] font-mono text-slate-400">#{selectedElement.id}</span>
+      <div className="bg-slate-950 p-2.5 rounded-xl border border-slate-800 mb-3 space-y-1">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-1.5">
+            <Tag className="size-3 text-blue-400" />
+            <span className="text-[11px] font-mono font-bold text-blue-400 uppercase">
+              &lt;{selectedElement.tagName}&gt;
+            </span>
+            {selectedElement.id && (
+              <span className="text-[10px] font-mono text-slate-400">#{selectedElement.id}</span>
+            )}
+          </div>
+          {selectedElement.styles?.width && selectedElement.styles?.height && (
+            <span className="text-[9px] font-mono bg-slate-900 border border-slate-800 text-slate-400 px-1.5 py-0.5 rounded">
+              {Math.round(parseFloat(selectedElement.styles.width))}x
+              {Math.round(parseFloat(selectedElement.styles.height))}px
+            </span>
           )}
         </div>
         <p className="text-xs text-slate-300 font-medium truncate">
@@ -79,7 +102,7 @@ export default function ElementInspectorDrawer({
         <button
           type="button"
           onClick={() => setActiveTab("ai")}
-          className={`flex-1 py-1 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-1 ${
+          className={`flex-1 py-1 rounded-lg text-[11px] font-bold transition-all flex items-center justify-center gap-1 ${
             activeTab === "ai"
               ? "bg-blue-600 text-white shadow-xs"
               : "text-slate-400 hover:text-slate-200"
@@ -91,18 +114,30 @@ export default function ElementInspectorDrawer({
         <button
           type="button"
           onClick={() => setActiveTab("visual")}
-          className={`flex-1 py-1 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-1 ${
+          className={`flex-1 py-1 rounded-lg text-[11px] font-bold transition-all flex items-center justify-center gap-1 ${
             activeTab === "visual"
               ? "bg-blue-600 text-white shadow-xs"
               : "text-slate-400 hover:text-slate-200"
           }`}
         >
-          <Sliders className="size-3" /> Visual Builder
+          <Sliders className="size-3" /> Visual
+        </button>
+
+        <button
+          type="button"
+          onClick={() => setActiveTab("css")}
+          className={`flex-1 py-1 rounded-lg text-[11px] font-bold transition-all flex items-center justify-center gap-1 ${
+            activeTab === "css"
+              ? "bg-blue-600 text-white shadow-xs"
+              : "text-slate-400 hover:text-slate-200"
+          }`}
+        >
+          <Code className="size-3" /> CSS
         </button>
       </div>
 
       {/* AI Prompt Tab */}
-      {activeTab === "ai" ? (
+      {activeTab === "ai" && (
         <div className="space-y-3">
           {/* Quick Modification Pills */}
           <div className="flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-none">
@@ -127,6 +162,13 @@ export default function ElementInspectorDrawer({
             >
               💫 Hover Shadow
             </button>
+            <button
+              type="button"
+              onClick={() => handleQuickPreset("Center all content flex align items center justify center.")}
+              className="text-[10px] font-medium bg-slate-800 hover:bg-blue-600 hover:text-white text-slate-300 px-2.5 py-1 rounded-lg transition-all shrink-0 border border-slate-700/80"
+            >
+              🎯 Center Content
+            </button>
           </div>
 
           {/* Prompt Form */}
@@ -148,12 +190,59 @@ export default function ElementInspectorDrawer({
             </button>
           </form>
         </div>
-      ) : (
-        /* Visual Builder Tab */
+      )}
+
+      {/* Visual Builder Tab */}
+      {activeTab === "visual" && (
         <VisualBuilderPanel
           selectedElement={selectedElement}
           onApplyStyles={handleApplyVisualStyles}
         />
+      )}
+
+      {/* Computed CSS Tab */}
+      {activeTab === "css" && (
+        <div className="space-y-3 text-xs">
+          <div className="flex items-center justify-between font-bold text-slate-300 pb-1 border-b border-slate-800">
+            <span className="flex items-center gap-1.5">
+              <Info className="size-3.5 text-blue-400" />
+              Computed CSS Metrics
+            </span>
+            <span className="text-[10px] font-normal text-slate-500">
+              {computedStylesList.length} properties
+            </span>
+          </div>
+
+          {computedStylesList.length === 0 ? (
+            <p className="text-slate-400 text-center py-4">No computed styles available for this element.</p>
+          ) : (
+            <div className="bg-slate-950 p-2.5 rounded-xl border border-slate-800 space-y-1.5 font-mono text-[11px] max-h-60 overflow-y-auto scrollbar-thin scrollbar-thumb-slate-800">
+              {computedStylesList.map(([key, val]) => (
+                <div
+                  key={key}
+                  className="flex items-center justify-between group py-1 px-1.5 hover:bg-slate-900 rounded transition-colors"
+                >
+                  <div className="truncate mr-2">
+                    <span className="text-blue-400">{key}:</span>{" "}
+                    <span className="text-slate-300 truncate">{String(val)}</span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => handleCopyStyle(key, String(val))}
+                    className="opacity-0 group-hover:opacity-100 text-slate-400 hover:text-slate-100 p-0.5 rounded transition-opacity"
+                    title="Copy property"
+                  >
+                    {copiedKey === key ? (
+                      <Check className="size-3 text-emerald-400" />
+                    ) : (
+                      <Copy className="size-3" />
+                    )}
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
       )}
     </div>
   );

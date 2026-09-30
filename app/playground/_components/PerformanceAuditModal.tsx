@@ -13,12 +13,14 @@ import {
 } from 'lucide-react';
 import {
   runPerformanceAudit,
+  runProjectPerformanceAudit,
   autoFixAuditIssues,
+  autoFixProjectAuditIssues,
   AuditIssue,
 } from '@/lib/performanceAuditEngine';
 
 interface PerformanceAuditModalProps {
-  filesMap: Record<string, string>;
+  filesMap?: Record<string, string>;
   htmlCode: string;
   isOpen: boolean;
   onClose: () => void;
@@ -26,6 +28,7 @@ interface PerformanceAuditModalProps {
 }
 
 export default function PerformanceAuditModal({
+  filesMap,
   htmlCode,
   isOpen,
   onClose,
@@ -39,19 +42,30 @@ export default function PerformanceAuditModal({
   const activeHtml = fixedHtmlState || htmlCode;
 
   const scores = useMemo(() => {
-    if (!isOpen || !activeHtml) return null;
+    if (!isOpen) return null;
+    if (filesMap && Object.keys(filesMap).length > 0) {
+      return runProjectPerformanceAudit(filesMap);
+    }
     return runPerformanceAudit(activeHtml);
-  }, [isOpen, activeHtml]);
+  }, [isOpen, activeHtml, filesMap]);
 
   if (!isOpen) return null;
 
   const handleAutoFix = () => {
     setIsFixing(true);
     setTimeout(() => {
-      const { fixedHtml, fixesApplied } = autoFixAuditIssues(activeHtml);
-      onApplyFixedCode(fixedHtml);
-      setFixedHtmlState(fixedHtml);
-      setAppliedFixes(fixesApplied);
+      if (filesMap && Object.keys(filesMap).length > 0) {
+        const { updatedFilesMap, fixesApplied } = autoFixProjectAuditIssues(filesMap);
+        const mainCode = updatedFilesMap['index.html'] || updatedFilesMap['App.jsx'] || Object.values(updatedFilesMap)[0] || activeHtml;
+        onApplyFixedCode(mainCode);
+        setFixedHtmlState(mainCode);
+        setAppliedFixes(fixesApplied);
+      } else {
+        const { fixedHtml, fixesApplied } = autoFixAuditIssues(activeHtml);
+        onApplyFixedCode(fixedHtml);
+        setFixedHtmlState(fixedHtml);
+        setAppliedFixes(fixesApplied);
+      }
       setIsFixing(false);
     }, 600);
   };
@@ -75,7 +89,7 @@ export default function PerformanceAuditModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4">
-      <div className="bg-slate-900 border border-slate-800 rounded-2xl w-full max-w-5xl max-h-[90vh] flex flex-col shadow-2xl overflow-hidden">
+      <div className="bg-slate-900 border border-slate-800 rounded-2xl w-full max-w-5xl max-h-[90vh] flex flex-col shadow-2xl overflow-hidden font-sans">
         {/* Header */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-slate-800 bg-slate-950">
           <div className="flex items-center gap-3">
@@ -86,7 +100,7 @@ export default function PerformanceAuditModal({
               <h2 className="text-lg font-semibold text-white flex items-center gap-2">
                 Real-Time Performance & Accessibility Engine
                 <span className="text-xs px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 font-medium">
-                  Phase 16
+                  Lighthouse Standard
                 </span>
               </h2>
               <p className="text-xs text-slate-400">
@@ -103,7 +117,7 @@ export default function PerformanceAuditModal({
         </div>
 
         {/* Content Body */}
-        <div className="flex-1 overflow-y-auto p-6 space-y-6">
+        <div className="flex-1 overflow-y-auto p-6 space-y-6 scrollbar-thin scrollbar-thumb-slate-800">
           {/* Lighthouse Score Cards */}
           {scores && (
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
@@ -227,6 +241,11 @@ export default function PerformanceAuditModal({
                       <span className="text-[10px] px-2 py-0.5 rounded bg-slate-800 text-slate-400 uppercase">
                         {issue.category}
                       </span>
+                      {issue.filePath && (
+                        <span className="text-[10px] font-mono text-emerald-400 bg-slate-900 px-1.5 py-0.5 rounded border border-slate-800">
+                          {issue.filePath}
+                        </span>
+                      )}
                     </div>
                     <p className="text-xs text-slate-400">{issue.description}</p>
                     <div className="mt-2 text-xs bg-slate-900 p-2.5 rounded-lg border border-slate-800 text-emerald-300 font-mono">

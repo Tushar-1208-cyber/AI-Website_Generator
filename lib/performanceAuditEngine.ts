@@ -12,6 +12,7 @@ export interface AuditIssue {
   description: string;
   severity: 'high' | 'medium' | 'low';
   fixSuggestion: string;
+  filePath?: string;
 }
 
 export interface AuditScores {
@@ -24,9 +25,9 @@ export interface AuditScores {
 }
 
 /**
- * Audits HTML code for performance, accessibility, best practices, and SEO.
+ * Audits single HTML/JSX code file for performance, accessibility, best practices, and SEO.
  */
-export function runPerformanceAudit(htmlContent: string): AuditScores {
+export function runPerformanceAudit(htmlContent: string, filePath?: string): AuditScores {
   const issues: AuditIssue[] = [];
 
   if (!htmlContent || !htmlContent.trim()) {
@@ -44,58 +45,63 @@ export function runPerformanceAudit(htmlContent: string): AuditScores {
   const imgWithoutAlt = (htmlContent.match(/<img(?![^>]*\balt=)[^>]*>/gi) || []).length;
   if (imgWithoutAlt > 0) {
     issues.push({
-      id: 'acc-img-alt',
+      id: `acc-img-alt-${filePath || 'file'}`,
       category: 'accessibility',
       title: 'Image elements missing `alt` attributes',
       description: `Found ${imgWithoutAlt} image(s) lacking descriptive alt text for screen readers.`,
       severity: 'high',
       fixSuggestion: 'Add alt="Descriptive text" to all <img> tags.',
+      filePath,
     });
   }
 
   const buttonWithoutAria = (htmlContent.match(/<button(?![^>]*\baria-label=)[^>]*>\s*<svg/gi) || []).length;
   if (buttonWithoutAria > 0) {
     issues.push({
-      id: 'acc-button-aria',
+      id: `acc-button-aria-${filePath || 'file'}`,
       category: 'accessibility',
       title: 'Icon buttons missing `aria-label`',
       description: `Found ${buttonWithoutAria} icon-only button(s) without text labels or aria-label attributes.`,
       severity: 'high',
       fixSuggestion: 'Add aria-label="Action description" to icon buttons.',
+      filePath,
     });
   }
 
-  if (!htmlContent.toLowerCase().includes('lang=')) {
+  if (filePath?.endsWith('.html') && !htmlContent.toLowerCase().includes('lang=')) {
     issues.push({
-      id: 'acc-html-lang',
+      id: `acc-html-lang-${filePath || 'file'}`,
       category: 'accessibility',
       title: '`<html>` element lacks a `lang` attribute',
       description: 'Screen readers use the lang attribute to pronounce text correctly.',
       severity: 'medium',
       fixSuggestion: 'Update to <html lang="en">.',
+      filePath,
     });
   }
 
   // 2. SEO Checks
-  if (!htmlContent.toLowerCase().includes('<title>')) {
+  if (filePath?.endsWith('.html') && !htmlContent.toLowerCase().includes('<title>')) {
     issues.push({
-      id: 'seo-title',
+      id: `seo-title-${filePath || 'file'}`,
       category: 'seo',
       title: 'Document does not have a `<title>` element',
       description: 'Titles communicate the purpose of a webpage for search engines.',
       severity: 'high',
       fixSuggestion: 'Add <title>Page Title</title> inside <head>.',
+      filePath,
     });
   }
 
-  if (!htmlContent.toLowerCase().includes('name="description"')) {
+  if (filePath?.endsWith('.html') && !htmlContent.toLowerCase().includes('name="description"')) {
     issues.push({
-      id: 'seo-meta-desc',
+      id: `seo-meta-desc-${filePath || 'file'}`,
       category: 'seo',
       title: 'Document missing meta description',
       description: 'Meta descriptions summarize page content in search engine results.',
       severity: 'medium',
       fixSuggestion: 'Add <meta name="description" content="...">.',
+      filePath,
     });
   }
 
@@ -103,24 +109,26 @@ export function runPerformanceAudit(htmlContent: string): AuditScores {
   const unoptimizedScripts = (htmlContent.match(/<script(?![^>]*\b(async|defer)\b)[^>]*src=/gi) || []).length;
   if (unoptimizedScripts > 0) {
     issues.push({
-      id: 'perf-script-defer',
+      id: `perf-script-defer-${filePath || 'file'}`,
       category: 'performance',
       title: 'Render-blocking external scripts detected',
       description: `Found ${unoptimizedScripts} script tag(s) without async or defer attributes.`,
       severity: 'medium',
       fixSuggestion: 'Add `defer` or `async` to external script tags.',
+      filePath,
     });
   }
 
   // 4. Best Practices Checks
-  if (!htmlContent.toLowerCase().includes('<!doctype html>')) {
+  if (filePath?.endsWith('.html') && !htmlContent.toLowerCase().includes('<!doctype html>')) {
     issues.push({
-      id: 'bp-doctype',
+      id: `bp-doctype-${filePath || 'file'}`,
       category: 'best_practices',
       title: 'Page lacks standard `<!DOCTYPE html>` declaration',
       description: 'A doctype prevents browsers from switching into quirks mode.',
       severity: 'low',
       fixSuggestion: 'Add <!DOCTYPE html> at the top of the file.',
+      filePath,
     });
   }
 
@@ -148,7 +156,45 @@ export function runPerformanceAudit(htmlContent: string): AuditScores {
 }
 
 /**
- * Automatically applies fixes to resolve performance & accessibility audit issues.
+ * Run audit across all files in the project
+ */
+export function runProjectPerformanceAudit(filesMap: Record<string, string>): AuditScores {
+  const allIssues: AuditIssue[] = [];
+  const webFiles = Object.keys(filesMap).filter((fp) => /\.(html|htm|jsx|tsx)$/i.test(fp));
+
+  if (webFiles.length === 0) {
+    return runPerformanceAudit(Object.values(filesMap).join('\n'));
+  }
+
+  for (const fp of webFiles) {
+    const res = runPerformanceAudit(filesMap[fp] || '', fp);
+    allIssues.push(...res.issues);
+  }
+
+  const accIssues = allIssues.filter((i) => i.category === 'accessibility').length;
+  const seoIssues = allIssues.filter((i) => i.category === 'seo').length;
+  const perfIssues = allIssues.filter((i) => i.category === 'performance').length;
+  const bpIssues = allIssues.filter((i) => i.category === 'best_practices').length;
+
+  const accessibility = Math.max(50, 100 - accIssues * 15);
+  const seo = Math.max(50, 100 - seoIssues * 20);
+  const performance = Math.max(50, 100 - perfIssues * 15);
+  const bestPractices = Math.max(50, 100 - bpIssues * 10);
+
+  const overall = Math.round((accessibility + seo + performance + bestPractices) / 4);
+
+  return {
+    performance,
+    accessibility,
+    bestPractices,
+    seo,
+    overall,
+    issues: allIssues,
+  };
+}
+
+/**
+ * Automatically applies fixes to resolve performance & accessibility audit issues across single HTML string.
  */
 export function autoFixAuditIssues(htmlContent: string): {
   fixedHtml: string;
@@ -158,7 +204,7 @@ export function autoFixAuditIssues(htmlContent: string): {
   const fixesApplied: string[] = [];
 
   // Fix 1: Add missing lang="en"
-  if (!fixed.toLowerCase().includes('lang=')) {
+  if (fixed.includes('<html') && !fixed.toLowerCase().includes('lang=')) {
     fixed = fixed.replace(/<html/i, '<html lang="en"');
     fixesApplied.push('Added `lang="en"` attribute to <html> tag');
   }
@@ -176,7 +222,7 @@ export function autoFixAuditIssues(htmlContent: string): {
   }
 
   // Fix 4: Add <title> and meta description if missing inside head
-  if (!fixed.toLowerCase().includes('<title>')) {
+  if (fixed.includes('<head>') && !fixed.toLowerCase().includes('<title>')) {
     fixed = fixed.replace(/<head>/i, '<head>\n  <title>AI Web Application</title>\n  <meta name="description" content="Generated with AI Website Generator Pro" />');
     fixesApplied.push('Inserted missing `<title>` and `<meta name="description">` tags into <head>');
   }
@@ -184,5 +230,30 @@ export function autoFixAuditIssues(htmlContent: string): {
   return {
     fixedHtml: fixed,
     fixesApplied,
+  };
+}
+
+/**
+ * Automatically applies fixes across filesMap
+ */
+export function autoFixProjectAuditIssues(filesMap: Record<string, string>): {
+  updatedFilesMap: Record<string, string>;
+  fixesApplied: string[];
+} {
+  const updatedFilesMap = { ...filesMap };
+  const allFixes: string[] = [];
+
+  for (const [fp, content] of Object.entries(filesMap)) {
+    if (!/\.(html|htm|jsx|tsx)$/i.test(fp)) continue;
+    const { fixedHtml, fixesApplied } = autoFixAuditIssues(content);
+    if (fixesApplied.length > 0) {
+      updatedFilesMap[fp] = fixedHtml;
+      allFixes.push(...fixesApplied.map((f) => `[${fp}] ${f}`));
+    }
+  }
+
+  return {
+    updatedFilesMap,
+    fixesApplied: allFixes,
   };
 }

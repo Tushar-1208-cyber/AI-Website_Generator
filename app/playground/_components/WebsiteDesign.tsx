@@ -489,12 +489,12 @@ function WebsiteDesign({
         {/* Live Preview View */}
         {(activeTab === "preview" || activeTab === "split") && (
           <div
-            className={`flex min-h-0 min-w-0 flex-1 justify-center overflow-hidden p-3 bg-slate-950 bg-[radial-gradient(#1e293b_1px,transparent_1px)] [background-size:16px_16px] ${
+            className={`flex min-h-0 min-w-0 flex-1 justify-center overflow-hidden p-3 md:p-4 bg-slate-950 bg-[radial-gradient(#1e293b_1px,transparent_1px)] [background-size:16px_16px] ${
               activeTab === "split" ? "w-1/2" : "w-full"
             }`}
           >
             <div
-              className={`${getDeviceWidth()} flex h-full min-h-0 min-w-0 flex-col overflow-hidden rounded-lg border border-slate-800 bg-white shadow-xl transition-all duration-300 ease-in-out`}
+              className={`${getDeviceWidth()} flex h-full min-h-0 min-w-0 flex-col overflow-hidden rounded-2xl border border-slate-800/90 bg-white shadow-2xl transition-all duration-300 ease-in-out`}
             >
               {fullHtml ? (
                 <iframe

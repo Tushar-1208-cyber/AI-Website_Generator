@@ -14,6 +14,7 @@ export interface ResponsiveIssue {
   message: string;
   elementSelector: string;
   suggestedFix: string;
+  filePath?: string;
 }
 
 export interface ResponsiveAnalysisResult {
@@ -30,7 +31,7 @@ export interface ResponsiveAnalysisResult {
 /**
  * Analyzes HTML content for common responsive layout pitfalls.
  */
-export function analyzeResponsiveness(htmlContent: string): ResponsiveAnalysisResult {
+export function analyzeResponsiveness(htmlContent: string, filePath?: string): ResponsiveAnalysisResult {
   const issues: ResponsiveIssue[] = [];
 
   if (!htmlContent || htmlContent.trim().length === 0) {
@@ -46,13 +47,14 @@ export function analyzeResponsiveness(htmlContent: string): ResponsiveAnalysisRe
   const fixedWidthMatches = htmlContent.match(/style=["'][^"']*width:\s*\d{4,}px[^"']*["']/gi) || [];
   if (fixedWidthMatches.length > 0) {
     issues.push({
-      id: 'resp-fixed-width-1',
+      id: `resp-fixed-width-${filePath || 'file'}`,
       viewport: 'mobile',
       type: 'horizontal_scroll',
       severity: 'critical',
       message: `Found ${fixedWidthMatches.length} element(s) with explicit large pixel widths (>1000px) that force horizontal scrolling on mobile.`,
       elementSelector: '[style*="width"]',
       suggestedFix: 'Replace fixed px widths with w-full, max-w-7xl, or responsive percentages.',
+      filePath,
     });
   }
 
@@ -60,13 +62,14 @@ export function analyzeResponsiveness(htmlContent: string): ResponsiveAnalysisRe
   const nonResponsiveGridMatches = htmlContent.match(/class=["'][^"']*\bgrid-cols-(?:3|4|5|6)\b(?!.*?\bgrid-cols-1\b)[^"']*["']/gi) || [];
   if (nonResponsiveGridMatches.length > 0) {
     issues.push({
-      id: 'resp-grid-overflow-1',
+      id: `resp-grid-overflow-${filePath || 'file'}`,
       viewport: 'mobile',
       type: 'grid_overflow',
       severity: 'critical',
       message: `Found ${nonResponsiveGridMatches.length} multi-column grid container(s) that lack mobile single-column fallbacks.`,
       elementSelector: '.grid',
       suggestedFix: 'Use mobile-first grid classes: grid-cols-1 md:grid-cols-3 or lg:grid-cols-4.',
+      filePath,
     });
   }
 
@@ -74,13 +77,14 @@ export function analyzeResponsiveness(htmlContent: string): ResponsiveAnalysisRe
   const smallTouchTargetMatches = htmlContent.match(/class=["'][^"']*\btext-xs\b(?!.*?\bp-[2-9]\b)[^"']*["']/gi) || [];
   if (smallTouchTargetMatches.length > 0) {
     issues.push({
-      id: 'resp-touch-target-1',
+      id: `resp-touch-target-${filePath || 'file'}`,
       viewport: 'mobile',
       type: 'touch_target',
       severity: 'warning',
       message: `Detected ${smallTouchTargetMatches.length} small clickable element(s) with low padding, making touch interaction difficult on mobile devices.`,
       elementSelector: 'button, a',
       suggestedFix: 'Add minimum padding (py-2.5 px-4) to meet standard 44px touch target area.',
+      filePath,
     });
   }
 
@@ -89,13 +93,14 @@ export function analyzeResponsiveness(htmlContent: string): ResponsiveAnalysisRe
   const textTruncateNeeded = longHeaderMatches.some((h) => h.match(/text-(5xl|6xl|7xl)/i) && !h.includes('break-words'));
   if (textTruncateNeeded) {
     issues.push({
-      id: 'resp-text-overflow-1',
+      id: `resp-text-overflow-${filePath || 'file'}`,
       viewport: 'mobile',
       type: 'text_overflow',
       severity: 'warning',
       message: 'Large display headings (text-5xl+) missing word wrap classes may clip off screen on mobile devices.',
       elementSelector: 'h1, h2, h3',
       suggestedFix: 'Add break-words or responsive font sizing (text-3xl md:text-5xl).',
+      filePath,
     });
   }
 
@@ -104,13 +109,14 @@ export function analyzeResponsiveness(htmlContent: string): ResponsiveAnalysisRe
     const hasHamburger = htmlContent.includes('md:hidden') || htmlContent.includes('svg') || htmlContent.includes('menu');
     if (!hasHamburger && htmlContent.includes('flex')) {
       issues.push({
-        id: 'resp-nav-overflow-1',
+        id: `resp-nav-overflow-${filePath || 'file'}`,
         viewport: 'mobile',
         type: 'nav_overflow',
         severity: 'info',
         message: 'Header navigation links may clutter or wrap awkwardly on mobile screens.',
         elementSelector: 'nav',
         suggestedFix: 'Wrap desktop links in `hidden md:flex` and provide a mobile drawer toggle.',
+        filePath,
       });
     }
   }
@@ -134,6 +140,36 @@ export function analyzeResponsiveness(htmlContent: string): ResponsiveAnalysisRe
     issues,
     viewportsAudited: { desktop: true, tablet: true, mobile: true },
     summary,
+  };
+}
+
+/**
+ * Analyzes responsiveness across all project files.
+ */
+export function analyzeProjectResponsiveness(filesMap: Record<string, string>): ResponsiveAnalysisResult {
+  const allIssues: ResponsiveIssue[] = [];
+  const webFiles = Object.keys(filesMap).filter((fp) => /\.(html|htm|jsx|tsx)$/i.test(fp));
+
+  if (webFiles.length === 0) {
+    return analyzeResponsiveness(Object.values(filesMap).join('\n'));
+  }
+
+  for (const fp of webFiles) {
+    const res = analyzeResponsiveness(filesMap[fp] || '', fp);
+    allIssues.push(...res.issues);
+  }
+
+  const criticalCount = allIssues.filter((i) => i.severity === 'critical').length;
+  const warningCount = allIssues.filter((i) => i.severity === 'warning').length;
+  const infoCount = allIssues.filter((i) => i.severity === 'info').length;
+
+  const score = Math.max(0, 100 - (criticalCount * 20 + warningCount * 10 + infoCount * 3));
+
+  return {
+    score,
+    issues: allIssues,
+    viewportsAudited: { desktop: true, tablet: true, mobile: true },
+    summary: score >= 90 ? 'Project code is highly responsive.' : `${allIssues.length} responsive issues found across project files.`,
   };
 }
 
@@ -179,5 +215,30 @@ export function autoFixResponsiveness(htmlContent: string): {
   return {
     fixedHtml: fixed,
     fixesApplied,
+  };
+}
+
+/**
+ * Automatically transforms project files to fix responsive issues.
+ */
+export function autoFixProjectResponsiveness(filesMap: Record<string, string>): {
+  updatedFilesMap: Record<string, string>;
+  fixesApplied: string[];
+} {
+  const updatedFilesMap = { ...filesMap };
+  const allFixes: string[] = [];
+
+  for (const [fp, content] of Object.entries(filesMap)) {
+    if (!/\.(html|htm|jsx|tsx)$/i.test(fp)) continue;
+    const { fixedHtml, fixesApplied } = autoFixResponsiveness(content);
+    if (fixesApplied.length > 0) {
+      updatedFilesMap[fp] = fixedHtml;
+      allFixes.push(...fixesApplied.map((f) => `[${fp}] ${f}`));
+    }
+  }
+
+  return {
+    updatedFilesMap,
+    fixesApplied: allFixes,
   };
 }

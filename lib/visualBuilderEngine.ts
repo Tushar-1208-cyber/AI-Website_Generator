@@ -10,7 +10,12 @@ export interface VisualElementStyles {
   shadow: string; // shadow-none, shadow-sm, shadow-md, shadow-lg, shadow-2xl
   display: string; // block, flex, grid, inline-block
   flexDirection: string; // flex-row, flex-col
+  alignItems: string; // items-start, items-center, items-end, items-stretch
+  justifyContent: string; // justify-start, justify-center, justify-between, justify-end
   gap: string; // gap-2, gap-4, gap-6
+  border: string; // border-none, border, border-2
+  borderColor: string; // border-slate-800, border-blue-500, border-transparent
+  opacity: string; // opacity-100, opacity-80, opacity-50
 }
 
 export const DEFAULT_VISUAL_STYLES: VisualElementStyles = {
@@ -25,7 +30,12 @@ export const DEFAULT_VISUAL_STYLES: VisualElementStyles = {
   shadow: "shadow-md",
   display: "block",
   flexDirection: "flex-col",
+  alignItems: "items-start",
+  justifyContent: "justify-start",
   gap: "gap-4",
+  border: "border-none",
+  borderColor: "border-slate-800",
+  opacity: "opacity-100",
 };
 
 /**
@@ -39,15 +49,20 @@ export function parseElementStyles(classNames: string = ""): VisualElementStyles
     if (/^text-(xs|sm|base|lg|xl|2xl|3xl|4xl|5xl)$/.test(cls)) styles.fontSize = cls;
     else if (/^font-(thin|normal|medium|semibold|bold|extrabold)$/.test(cls)) styles.fontWeight = cls;
     else if (/^text-(left|center|right|justify)$/.test(cls)) styles.textAlign = cls;
-    else if (/^text-(slate|gray|blue|indigo|purple|emerald|amber|red|white)-\d{2,3}$/.test(cls) || cls === "text-white") styles.textColor = cls;
-    else if (/^bg-(slate|gray|blue|indigo|purple|emerald|amber|red|white|black)(-\d{2,3})?$/.test(cls)) styles.bgColor = cls;
+    else if (/^text-(slate|gray|blue|indigo|purple|emerald|amber|red|white)(-\d{2,3})?$/.test(cls) || cls === "text-white") styles.textColor = cls;
+    else if (/^bg-(slate|gray|blue|indigo|purple|emerald|amber|red|white|black|transparent)(-\d{2,3})?$/.test(cls)) styles.bgColor = cls;
     else if (/^rounded-(none|sm|md|lg|xl|2xl|3xl|full)$/.test(cls)) styles.borderRadius = cls;
     else if (/^p[xyabtlr]?-\d+$/.test(cls)) styles.padding = cls;
     else if (/^m[xyabtlr]?-\d+$/.test(cls)) styles.margin = cls;
     else if (/^shadow-(none|sm|md|lg|xl|2xl)$/.test(cls)) styles.shadow = cls;
     else if (/^(block|flex|grid|inline-block|hidden)$/.test(cls)) styles.display = cls;
     else if (/^flex-(row|col)$/.test(cls)) styles.flexDirection = cls;
+    else if (/^items-(start|center|end|stretch)$/.test(cls)) styles.alignItems = cls;
+    else if (/^justify-(start|center|end|between|around|evenly)$/.test(cls)) styles.justifyContent = cls;
     else if (/^gap-\d+$/.test(cls)) styles.gap = cls;
+    else if (/^border(-0|-2|-4|-8)?$/.test(cls)) styles.border = cls;
+    else if (/^border-(slate|gray|blue|indigo|purple|emerald|amber|red|transparent)(-\d{2,3})?$/.test(cls)) styles.borderColor = cls;
+    else if (/^opacity-\d+$/.test(cls)) styles.opacity = cls;
   }
 
   return styles;
@@ -58,7 +73,7 @@ export function parseElementStyles(classNames: string = ""): VisualElementStyles
  */
 export function buildTailwindClasses(styles: VisualElementStyles, existingClassNames: string = ""): string {
   const currentClasses = existingClassNames.split(/\s+/).filter((c) => {
-    return !/^(text-(xs|sm|base|lg|xl|2xl|3xl|4xl|5xl|left|center|right)|font-(normal|medium|semibold|bold|extrabold)|bg-[a-z0-9-]+|rounded-[a-z0-9-]+|p[xyabtlr]?-\d+|m[xyabtlr]?-\d+|shadow-[a-z0-9-]+|flex-(row|col)|gap-\d+)$/.test(c);
+    return !/^(text-(xs|sm|base|lg|xl|2xl|3xl|4xl|5xl|left|center|right)|font-(normal|medium|semibold|bold|extrabold)|bg-[a-z0-9-]+|rounded-[a-z0-9-]+|p[xyabtlr]?-\d+|m[xyabtlr]?-\d+|shadow-[a-z0-9-]+|flex-(row|col)|items-[a-z]+|justify-[a-z]+|gap-\d+|border(-0|-2|-4|-8)?|border-[a-z0-9-]+|opacity-\d+)$/.test(c);
   });
 
   const updatedList = [
@@ -73,10 +88,15 @@ export function buildTailwindClasses(styles: VisualElementStyles, existingClassN
     styles.margin,
     styles.shadow,
     styles.display,
+    styles.border !== "border-none" ? styles.border : "",
+    styles.border !== "border-none" ? styles.borderColor : "",
+    styles.opacity !== "opacity-100" ? styles.opacity : "",
   ];
 
   if (styles.display === "flex") {
     updatedList.push(styles.flexDirection);
+    updatedList.push(styles.alignItems);
+    updatedList.push(styles.justifyContent);
     updatedList.push(styles.gap);
   }
 
@@ -106,8 +126,10 @@ export function applyVisualStylesToCode(
   modifiedContent = modifiedContent.replace(tagRegex, (match) => {
     if (match.includes(`class="`)) {
       return match.replace(/class="[^"]*"/, `class="${newClasses}"`);
+    } else if (match.includes(`className="`)) {
+      return match.replace(/className="[^"]*"/, `className="${newClasses}"`);
     } else {
-      return match.replace(`<${tagName}`, `<${tagName} class="${newClasses}"`);
+      return match.replace(`<${tagName}`, `<${tagName} className="${newClasses}"`);
     }
   });
 

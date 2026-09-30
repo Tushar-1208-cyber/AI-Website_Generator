@@ -4,6 +4,23 @@ export interface SelectedElementInfo {
   className: string;
   id: string;
   outerHtmlSnippet: string;
+  styles?: {
+    fontSize?: string;
+    fontWeight?: string;
+    fontFamily?: string;
+    color?: string;
+    backgroundColor?: string;
+    margin?: string;
+    padding?: string;
+    width?: string;
+    height?: string;
+    borderRadius?: string;
+    border?: string;
+    boxShadow?: string;
+    textAlign?: string;
+    position?: string;
+    display?: string;
+  };
 }
 
 /**
@@ -43,12 +60,30 @@ export const INSPECTOR_IFRAME_SCRIPT = `
       target.style.outline = '3px solid #2563eb';
       target.style.outlineOffset = '2px';
 
+      var comp = window.getComputedStyle(target);
       var info = {
         tagName: target.tagName.toLowerCase(),
-        textSnippet: (target.textContent || '').trim().substring(0, 60),
+        textSnippet: (target.textContent || '').trim().substring(0, 100),
         className: target.className || '',
         id: target.id || '',
-        outerHtmlSnippet: target.outerHTML.substring(0, 150)
+        outerHtmlSnippet: target.outerHTML.substring(0, 200),
+        styles: {
+          fontSize: comp.fontSize || '',
+          fontWeight: comp.fontWeight || '',
+          fontFamily: comp.fontFamily || '',
+          color: comp.color || '',
+          backgroundColor: comp.backgroundColor || '',
+          margin: comp.margin || '',
+          padding: comp.padding || '',
+          width: comp.width || '',
+          height: comp.height || '',
+          borderRadius: comp.borderRadius || '',
+          border: comp.border || '',
+          boxShadow: comp.boxShadow || '',
+          textAlign: comp.textAlign || '',
+          position: comp.position || '',
+          display: comp.display || ''
+        }
       };
 
       console.log('[Visual Inspector] Selected element:', info);

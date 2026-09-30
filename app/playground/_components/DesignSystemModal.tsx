@@ -14,6 +14,7 @@ import {
   Zap,
   Sparkles,
   ShieldCheck,
+  FileCode,
 } from "lucide-react";
 
 interface DesignSystemModalProps {
@@ -29,6 +30,10 @@ export default function DesignSystemModal({
 }: DesignSystemModalProps) {
   const currentTheme = extractDesignSystem(filesMap);
   const [selectedTheme, setSelectedTheme] = useState<ThemePreset>(currentTheme);
+
+  const fileCount = Object.keys(filesMap).filter((fp) =>
+    /\.(html|htm|jsx|tsx|vue|svelte|js|ts)$/i.test(fp)
+  ).length;
 
   const handleApply = () => {
     const updatedMap = applyDesignSystemToCode(filesMap, selectedTheme);
@@ -67,7 +72,13 @@ export default function DesignSystemModal({
         <div className="p-6 space-y-5 overflow-y-auto flex-1 scrollbar-thin scrollbar-thumb-slate-800">
           {/* Preset Theme Cards */}
           <div className="space-y-3">
-            <h4 className="text-xs font-bold text-slate-300">Select Preset Design System Theme</h4>
+            <div className="flex items-center justify-between">
+              <h4 className="text-xs font-bold text-slate-300">Select Preset Design System Theme</h4>
+              <span className="text-[10px] text-slate-400 flex items-center gap-1">
+                <FileCode className="size-3 text-pink-400" /> {fileCount} Code Files Targeted
+              </span>
+            </div>
+
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               {PRESET_THEMES.map((theme) => {
                 const isSelected = selectedTheme.id === theme.id;
@@ -83,6 +94,10 @@ export default function DesignSystemModal({
                   >
                     <div className="flex items-center justify-between mb-2">
                       <h5 className="font-bold text-slate-100 text-xs flex items-center gap-1.5">
+                        <span
+                          className="size-2.5 rounded-full inline-block shrink-0"
+                          style={{ backgroundColor: theme.accentColor }}
+                        />
                         {theme.name}
                       </h5>
                       {isSelected && <Check className="size-4 text-pink-400" />}
@@ -91,7 +106,7 @@ export default function DesignSystemModal({
                     <p className="text-[10px] text-slate-400 mb-3">{theme.description}</p>
 
                     {/* Color & Style Preview Pills */}
-                    <div className="flex items-center gap-1.5">
+                    <div className="flex items-center gap-1.5 flex-wrap">
                       <span className={`size-4 rounded-full ${theme.primaryBg} inline-block`} title="Primary Color" />
                       <span className="text-[9px] font-mono bg-slate-900 text-slate-300 px-2 py-0.5 rounded border border-slate-800">
                         {theme.borderRadius}

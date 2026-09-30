@@ -9,6 +9,8 @@ import {
   X,
   Plus,
   FileDiff,
+  Github,
+  Download,
 } from 'lucide-react';
 import {
   INITIAL_COMMITS,
@@ -17,6 +19,7 @@ import {
   VirtualBranch,
   computeFileDiff,
   createVirtualCommit,
+  createVirtualBranch,
 } from '@/lib/gitAgentEngine';
 
 interface GitVersionModalProps {
@@ -38,7 +41,9 @@ export default function GitVersionModal({
   const [commitMessage, setCommitMessage] = useState<string>('');
   const [newBranchName, setNewBranchName] = useState<string>('');
   const [selectedCommitHash, setSelectedCommitHash] = useState<string>(commits[0]?.hash || 'a8f8ab8');
-  const [selectedDiffFile, setSelectedDiffFile] = useState<string>('index.html');
+  const [selectedDiffFile, setSelectedDiffFile] = useState<string>(
+    Object.keys(filesMap)[0] || 'index.html'
+  );
   const [injectedSuccess, setInjectedSuccess] = useState<string | null>(null);
 
   if (!isOpen) return null;
@@ -54,15 +59,11 @@ export default function GitVersionModal({
 
   const handleCreateBranch = () => {
     if (!newBranchName.trim()) return;
-    const cleanName = newBranchName.trim().replace(/\s+/g, '-');
-    const newBr: VirtualBranch = {
-      name: cleanName,
-      isCurrent: true,
-      headCommitHash: commits[0]?.hash || 'a8f8ab8',
-    };
-    setBranches([...branches, newBr]);
-    setSelectedBranch(cleanName);
+    const updatedBranches = createVirtualBranch(branches, newBranchName, commits[0]?.hash || 'a8f8ab8');
+    setBranches(updatedBranches);
+    setSelectedBranch(newBranchName.trim().replace(/\s+/g, '-').toLowerCase());
     setNewBranchName('');
+    setInjectedSuccess(`Created & switched to feature branch \`${newBranchName}\``);
   };
 
   const handleRestoreCommit = (commit: VirtualCommit) => {
@@ -82,7 +83,7 @@ export default function GitVersionModal({
   const diffResult = computeFileDiff(selectedDiffFile, oldFileContent, currentFileContent);
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4 font-sans">
       <div className="bg-slate-900 border border-slate-800 rounded-2xl w-full max-w-5xl max-h-[90vh] flex flex-col shadow-2xl overflow-hidden">
         {/* Header */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-slate-800 bg-slate-950">
@@ -94,7 +95,7 @@ export default function GitVersionModal({
               <h2 className="text-lg font-semibold text-white flex items-center gap-2">
                 Git Version Control & Branching Agent
                 <span className="text-xs px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 font-medium">
-                  Phase 14
+                  Git Timeline
                 </span>
               </h2>
               <p className="text-xs text-slate-400">
@@ -113,7 +114,7 @@ export default function GitVersionModal({
         {/* Content Body */}
         <div className="flex-1 overflow-hidden grid grid-cols-1 md:grid-cols-3">
           {/* Branch & Commit Timeline Sidebar */}
-          <div className="p-4 border-r border-slate-800 bg-slate-950 space-y-4 overflow-y-auto">
+          <div className="p-4 border-r border-slate-800 bg-slate-950 space-y-4 overflow-y-auto scrollbar-thin scrollbar-thumb-slate-800">
             {/* Branch Switcher */}
             <div className="space-y-2">
               <h3 className="text-xs font-semibold text-slate-400 uppercase tracking-wider">
@@ -145,6 +146,7 @@ export default function GitVersionModal({
                 <button
                   onClick={handleCreateBranch}
                   className="p-1.5 bg-slate-800 hover:bg-slate-700 text-emerald-400 rounded-lg text-xs transition"
+                  title="Create Branch"
                 >
                   <Plus className="w-4 h-4" />
                 </button>
@@ -154,27 +156,27 @@ export default function GitVersionModal({
             {/* Commit Message Box */}
             <div className="p-3 bg-slate-900 border border-slate-800 rounded-xl space-y-2">
               <h4 className="text-xs font-semibold text-slate-300 flex items-center gap-1.5">
-                <GitCommit className="w-3.5 h-3.5 text-emerald-400" /> Create Commit
+                <GitCommit className="w-3.5 h-3.5 text-emerald-400" /> Create Commit Snapshot
               </h4>
               <input
                 type="text"
-                placeholder="Commit message (e.g. feat: add landing header)"
+                placeholder="Commit message..."
                 value={commitMessage}
                 onChange={(e) => setCommitMessage(e.target.value)}
                 className="w-full px-2.5 py-1.5 bg-slate-950 border border-slate-800 rounded-lg text-xs text-white focus:outline-none focus:border-emerald-500"
               />
               <button
                 onClick={handleCreateCommit}
-                className="w-full py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white font-medium text-xs rounded-lg transition"
+                className="w-full py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white font-medium text-xs rounded-lg transition shadow-md shadow-emerald-600/20"
               >
-                Commit 1-File Snapshot
+                Commit Snapshot
               </button>
             </div>
 
             {/* Commit Timeline History */}
             <div className="space-y-2">
               <h3 className="text-xs font-semibold text-slate-400 uppercase tracking-wider">
-                Commit History Graph
+                Commit History Graph ({commits.length})
               </h3>
               <div className="space-y-2">
                 {commits.map((c) => (
@@ -211,7 +213,7 @@ export default function GitVersionModal({
           </div>
 
           {/* Line-by-Line Diff Viewer Panel */}
-          <div className="md:col-span-2 p-6 overflow-y-auto space-y-4 bg-slate-900">
+          <div className="md:col-span-2 p-6 overflow-y-auto space-y-4 bg-slate-900 scrollbar-thin scrollbar-thumb-slate-800">
             {injectedSuccess && (
               <div className="p-4 bg-emerald-500/10 border border-emerald-500/20 rounded-xl flex items-center gap-3 text-xs text-emerald-300">
                 <CheckCircle2 className="w-5 h-5 text-emerald-400 shrink-0" />
@@ -249,7 +251,7 @@ export default function GitVersionModal({
             </div>
 
             {/* Line Diff Viewer Box */}
-            <div className="bg-slate-950 border border-slate-800 rounded-xl font-mono text-xs overflow-x-auto max-h-[450px]">
+            <div className="bg-slate-950 border border-slate-800 rounded-xl font-mono text-xs overflow-x-auto max-h-[450px] scrollbar-thin scrollbar-thumb-slate-800">
               {diffResult.lines.map((line, idx) => (
                 <div
                   key={idx}

@@ -137,31 +137,28 @@ function PlaygroundHeader({
   const versionIndex = (id: string) => versions.findIndex((v) => v.frameID === id)
 
   return (
-    <div className="flex h-13 shrink-0 items-center justify-between border-b border-slate-800/80 bg-slate-950/90 backdrop-blur-md px-4 text-slate-100 font-sans z-30 transition-all">
-      {/* Left Section: Brand, Versioning, Save */}
-      <div className="flex items-center gap-3">
-        <Link href="/workspace" className="flex items-center gap-2 hover:opacity-90 transition-opacity">
-          <Image src="/logo.svg" alt="Logo" width={26} height={26} priority className="shrink-0" />
-          <span className="hidden md:inline text-xs font-bold bg-gradient-to-r from-blue-400 via-indigo-300 to-purple-400 bg-clip-text text-transparent tracking-tight">
-            AiSite.builder
-          </span>
+    <aside className="flex flex-row md:flex-col h-14 md:h-full w-full md:w-16 shrink-0 items-center justify-between border-b md:border-b-0 md:border-r border-slate-800/80 bg-slate-950/95 backdrop-blur-md px-3 py-2 md:py-4 text-slate-100 font-sans z-30 transition-all">
+      {/* Top / Brand & Versioning */}
+      <div className="flex flex-row md:flex-col items-center gap-3">
+        {/* Brand Logo */}
+        <Link href="/workspace" title="Back to Workspace" className="group p-1 rounded-xl hover:bg-slate-900 transition-all">
+          <Image src="/logo.svg" alt="Logo" width={28} height={28} priority className="shrink-0 group-hover:scale-105 transition-transform" />
         </Link>
-
-        <span className="text-slate-800 text-xs hidden md:inline">/</span>
 
         {/* Version Switcher */}
         <div className="relative" ref={dropdownRef}>
           <button
             onClick={() => setShowVersions((prev) => !prev)}
-            className="flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-slate-900/90 border border-slate-800 text-xs font-semibold text-slate-300 hover:text-white hover:border-slate-700 transition-all cursor-pointer shadow-xs"
+            title="Project Versions"
+            className="flex items-center justify-center p-1.5 rounded-xl bg-slate-900 border border-slate-800 text-xs font-semibold text-slate-300 hover:text-white hover:border-slate-700 transition-all cursor-pointer shadow-xs"
           >
-            <Layers className="size-3.5 text-blue-400" />
-            <span>{frameId && versionIndex(frameId) >= 0 ? `V${versionIndex(frameId) + 1}` : 'V1'}</span>
-            <ChevronDown className="size-3 text-slate-500" />
+            <span className="text-[11px] font-mono text-blue-400 font-bold">
+              {frameId && versionIndex(frameId) >= 0 ? `V${versionIndex(frameId) + 1}` : 'V1'}
+            </span>
           </button>
 
           {showVersions && (
-            <div className="absolute left-0 mt-2 w-56 bg-slate-900 border border-slate-800 rounded-2xl shadow-2xl z-50 py-1.5 font-sans animate-in fade-in duration-150">
+            <div className="absolute left-0 md:left-full top-full md:top-0 ml-0 md:ml-2 mt-2 md:mt-0 w-56 bg-slate-900 border border-slate-800 rounded-2xl shadow-2xl z-50 py-1.5 font-sans animate-in fade-in duration-150">
               <div className="px-3 py-1 text-[10px] font-bold text-slate-400 uppercase tracking-wider">Project Versions</div>
               <div className="max-h-56 overflow-y-auto">
                 {versions.map((v, idx) => (
@@ -196,107 +193,98 @@ function PlaygroundHeader({
           )}
         </div>
 
-        {/* Settings Toggle */}
-        <button
-          onClick={onSettingsToggle}
-          title="AI Generation & Theme Settings"
-          className="p-1.5 rounded-xl text-slate-400 hover:text-slate-100 hover:bg-slate-900 transition-all border border-transparent hover:border-slate-800 cursor-pointer"
-        >
-          <Settings2 className="size-4" />
-        </button>
-
         {/* Save Button */}
         <button
           onClick={handleSave}
           disabled={saving}
-          className={`flex items-center gap-1.5 px-3 py-1 rounded-xl text-xs font-semibold transition-all shadow-xs cursor-pointer ${
+          title={saved ? "Project Saved" : "Save Project"}
+          className={`p-2 rounded-xl text-xs font-semibold transition-all shadow-xs cursor-pointer ${
             saved
               ? 'bg-emerald-600 text-white'
-              : 'bg-slate-900 hover:bg-slate-800 text-slate-200 border border-slate-800'
+              : 'bg-slate-900 hover:bg-slate-800 text-slate-300 border border-slate-800'
           }`}
         >
           {saving ? (
-            <Loader2 className="size-3.5 animate-spin" />
+            <Loader2 className="size-4 animate-spin" />
           ) : saved ? (
-            <Check className="size-3.5" />
+            <Check className="size-4 text-white" />
           ) : (
-            <Save className="size-3.5 text-slate-400" />
+            <Save className="size-4 text-slate-400" />
           )}
-          <span>{saving ? 'Saving...' : saved ? 'Saved' : 'Save'}</span>
         </button>
       </div>
 
-      {/* Center Section: View Mode Tabs */}
-      <div className="flex items-center bg-slate-900/80 p-1 rounded-2xl border border-slate-800/80 shadow-xs">
-        <button
-          onClick={() => onTabChange("preview")}
-          className={`flex items-center gap-1.5 px-3 py-1 rounded-xl text-xs font-medium transition-all ${
-            activeTab === "preview"
-              ? "bg-blue-600 text-white shadow-xs font-semibold"
-              : "text-slate-400 hover:text-slate-200"
-          }`}
-        >
-          <Eye className="size-3.5" />
-          <span>Preview</span>
-        </button>
+      {/* Middle Section: View Modes & Viewport Controls */}
+      <div className="flex flex-row md:flex-col items-center gap-2 my-auto">
+        {/* View Mode Tabs */}
+        <div className="flex flex-row md:flex-col items-center bg-slate-900/90 p-1 rounded-2xl border border-slate-800/90 gap-1">
+          <button
+            onClick={() => onTabChange("preview")}
+            title="Live Preview Mode"
+            className={`p-2 rounded-xl text-xs transition-all ${
+              activeTab === "preview"
+                ? "bg-blue-600 text-white shadow-xs"
+                : "text-slate-400 hover:text-slate-200"
+            }`}
+          >
+            <Eye className="size-4" />
+          </button>
 
-        <button
-          onClick={() => onTabChange("code")}
-          className={`flex items-center gap-1.5 px-3 py-1 rounded-xl text-xs font-medium transition-all ${
-            activeTab === "code"
-              ? "bg-blue-600 text-white shadow-xs font-semibold"
-              : "text-slate-400 hover:text-slate-200"
-          }`}
-        >
-          <Code className="size-3.5" />
-          <span>Code</span>
-        </button>
+          <button
+            onClick={() => onTabChange("code")}
+            title="Code Editor Mode"
+            className={`p-2 rounded-xl text-xs transition-all ${
+              activeTab === "code"
+                ? "bg-blue-600 text-white shadow-xs"
+                : "text-slate-400 hover:text-slate-200"
+            }`}
+          >
+            <Code className="size-4" />
+          </button>
 
-        <button
-          onClick={() => onTabChange("split")}
-          className={`flex items-center gap-1.5 px-3 py-1 rounded-xl text-xs font-medium transition-all ${
-            activeTab === "split"
-              ? "bg-blue-600 text-white shadow-xs font-semibold"
-              : "text-slate-400 hover:text-slate-200"
-          }`}
-        >
-          <Columns className="size-3.5" />
-          <span>Split</span>
-        </button>
+          <button
+            onClick={() => onTabChange("split")}
+            title="Split Editor & Preview Mode"
+            className={`p-2 rounded-xl text-xs transition-all ${
+              activeTab === "split"
+                ? "bg-blue-600 text-white shadow-xs"
+                : "text-slate-400 hover:text-slate-200"
+            }`}
+          >
+            <Columns className="size-4" />
+          </button>
 
-        <button
-          onClick={() => onTabChange("api")}
-          className={`flex items-center gap-1.5 px-3 py-1 rounded-xl text-xs font-medium transition-all ${
-            activeTab === "api"
-              ? "bg-blue-600 text-white shadow-xs font-semibold"
-              : "text-slate-400 hover:text-slate-200"
-          }`}
-        >
-          <Server className="size-3.5 text-emerald-400" />
-          <span>API</span>
-        </button>
+          <button
+            onClick={() => onTabChange("api")}
+            title="API Backend Simulator Console"
+            className={`p-2 rounded-xl text-xs transition-all ${
+              activeTab === "api"
+                ? "bg-blue-600 text-white shadow-xs"
+                : "text-slate-400 hover:text-slate-200"
+            }`}
+          >
+            <Server className="size-4 text-emerald-400" />
+          </button>
 
-        <button
-          onClick={() => onTabChange("context")}
-          className={`flex items-center gap-1.5 px-3 py-1 rounded-xl text-xs font-medium transition-all ${
-            activeTab === "context"
-              ? "bg-blue-600 text-white shadow-xs font-semibold"
-              : "text-slate-400 hover:text-slate-200"
-          }`}
-        >
-          <Layers className="size-3.5 text-purple-400" />
-          <span>Context</span>
-        </button>
-      </div>
+          <button
+            onClick={() => onTabChange("context")}
+            title="Project Context Engine"
+            className={`p-2 rounded-xl text-xs transition-all ${
+              activeTab === "context"
+                ? "bg-blue-600 text-white shadow-xs"
+                : "text-slate-400 hover:text-slate-200"
+            }`}
+          >
+            <Layers className="size-4 text-purple-400" />
+          </button>
+        </div>
 
-      {/* Right Section: Canvas Controls & Action Triggers */}
-      <div className="flex items-center gap-2">
-        {/* Device Toggles */}
-        <div className="hidden lg:flex items-center gap-1 bg-slate-900 p-1 rounded-xl border border-slate-800">
+        {/* Device Switcher */}
+        <div className="flex flex-row md:flex-col items-center bg-slate-900/90 p-1 rounded-2xl border border-slate-800/90 gap-1">
           <button
             onClick={() => onDeviceChange("desktop")}
             disabled={activeTab === "code"}
-            title="Desktop View"
+            title="Desktop View (1280px)"
             className={`p-1.5 rounded-lg transition-all ${
               device === "desktop" && activeTab !== "code"
                 ? "bg-blue-600 text-white shadow-xs"
@@ -309,7 +297,7 @@ function PlaygroundHeader({
           <button
             onClick={() => onDeviceChange("tablet")}
             disabled={activeTab === "code"}
-            title="Tablet View"
+            title="Tablet View (768px)"
             className={`p-1.5 rounded-lg transition-all ${
               device === "tablet" && activeTab !== "code"
                 ? "bg-blue-600 text-white shadow-xs"
@@ -322,7 +310,7 @@ function PlaygroundHeader({
           <button
             onClick={() => onDeviceChange("mobile")}
             disabled={activeTab === "code"}
-            title="Mobile View"
+            title="Mobile View (375px)"
             className={`p-1.5 rounded-lg transition-all ${
               device === "mobile" && activeTab !== "code"
                 ? "bg-blue-600 text-white shadow-xs"
@@ -333,89 +321,46 @@ function PlaygroundHeader({
           </button>
         </div>
 
-        {/* Page Switcher */}
-        {htmlPages.length > 0 && (
-          <div className="hidden sm:flex items-center gap-1 bg-slate-900 px-2 py-1 rounded-xl border border-slate-800 text-xs">
-            <FileText className="size-3.5 text-blue-400 shrink-0" />
-            <select
-              value={activePreviewPage}
-              onChange={(e) => onPageChange(e.target.value)}
-              className="bg-slate-950 text-slate-100 text-xs font-mono font-medium px-1.5 py-0.5 rounded-lg border border-slate-800 focus:outline-none focus:border-blue-500 cursor-pointer"
-            >
-              {htmlPages.map((page) => (
-                <option key={page.path} value={page.path}>
-                  {page.label} ({page.path})
-                </option>
-              ))}
-            </select>
-          </div>
-        )}
-
-        {/* Undo / Redo */}
-        <div className="hidden sm:flex items-center gap-0.5 border-l border-slate-800/80 pl-2">
-          <button
-            onClick={onUndo}
-            disabled={!canUndo}
-            title="Undo Code Change"
-            className="p-1 rounded-lg text-slate-400 hover:text-slate-100 hover:bg-slate-900 disabled:opacity-30 transition-all cursor-pointer"
-          >
-            <Undo2 className="size-3.5" />
-          </button>
-
-          <button
-            onClick={onRedo}
-            disabled={!canRedo}
-            title="Redo Code Change"
-            className="p-1 rounded-lg text-slate-400 hover:text-slate-100 hover:bg-slate-900 disabled:opacity-30 transition-all cursor-pointer"
-          >
-            <Redo2 className="size-3.5" />
-          </button>
-        </div>
-
-        {/* Visual Inspect Mode */}
+        {/* Visual Inspector Toggle */}
         <button
           onClick={onInspectToggle}
-          title={isInspectMode ? "Disable Inspect Mode" : "Click-to-Edit Visual Inspector"}
-          className={`hidden xl:flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-xs font-medium transition-all cursor-pointer ${
+          title={isInspectMode ? "Disable Visual Inspector" : "Enable Click-to-Edit Visual Inspector"}
+          className={`p-2 rounded-xl text-xs transition-all cursor-pointer ${
             isInspectMode
               ? "bg-blue-600 text-white shadow-xs animate-pulse"
-              : "bg-slate-900 border border-slate-800 text-slate-300 hover:text-white hover:bg-slate-800"
+              : "bg-slate-900 border border-slate-800 text-slate-400 hover:text-white"
           }`}
         >
-          <Crosshair className="size-3.5 text-blue-400" />
-          <span>{isInspectMode ? "Inspecting" : "Inspect"}</span>
+          <Crosshair className="size-4 text-blue-400" />
         </button>
 
-        {/* AI Browser Agent */}
+        {/* AI Browser Agent Drawer Toggle */}
         <button
           onClick={onBrowserDrawerToggle}
           title="AI Browser Agent Simulation"
-          className={`hidden xl:flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-xs font-medium transition-all cursor-pointer ${
+          className={`p-2 rounded-xl text-xs transition-all cursor-pointer ${
             showBrowserDrawer
               ? "bg-indigo-600 text-white shadow-xs"
-              : "bg-slate-900 border border-slate-800 text-slate-300 hover:text-white hover:bg-slate-800"
+              : "bg-slate-900 border border-slate-800 text-slate-400 hover:text-white"
           }`}
         >
-          <Globe className="size-3.5 text-indigo-400" />
-          <span>Browser</span>
+          <Globe className="size-4 text-indigo-400" />
         </button>
 
-        {/* ✨ AI Engines Studio Menu */}
+        {/* ✨ AI Engines Studio Menu Popover */}
         <div className="relative">
           <button
             onClick={() => setShowToolsMenu(!showToolsMenu)}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-gradient-to-r from-indigo-950 via-slate-900 to-purple-950 border border-indigo-800/60 hover:border-indigo-600 text-xs font-semibold text-indigo-200 shadow-xs transition-all cursor-pointer"
+            title="AI Engines Studio Menu (16 Engines)"
+            className="p-2 rounded-xl bg-gradient-to-r from-indigo-950 via-slate-900 to-purple-950 border border-indigo-800/60 hover:border-indigo-600 text-indigo-200 shadow-xs transition-all cursor-pointer flex items-center justify-center"
           >
-            <Sparkles className="size-3.5 text-purple-400 animate-pulse" />
-            <span>AI Engines</span>
-            <span className="ml-1 px-1.5 py-0.2 rounded-full bg-purple-500/20 text-purple-300 text-[10px] font-mono">16</span>
-            <ChevronDown className="size-3 text-slate-400" />
+            <Sparkles className="size-4 text-purple-400 animate-pulse" />
           </button>
 
           {showToolsMenu && (
             <>
               <div className="fixed inset-0 z-40" onClick={() => setShowToolsMenu(false)} />
-              <div className="absolute right-0 top-full mt-2 w-[480px] max-w-[90vw] bg-slate-950 border border-slate-800 rounded-3xl shadow-2xl z-50 p-4 space-y-4 font-sans animate-in fade-in slide-in-from-top-2">
+              <div className="absolute left-0 md:left-full bottom-full md:bottom-auto top-auto md:top-0 ml-0 md:ml-2 mb-2 md:mb-0 w-[480px] max-w-[90vw] bg-slate-950 border border-slate-800 rounded-3xl shadow-2xl z-50 p-4 space-y-4 font-sans animate-in fade-in slide-in-from-left-2">
                 <div className="flex items-center justify-between border-b border-slate-800/80 pb-2.5">
                   <div className="flex items-center gap-2">
                     <Sparkles className="size-4 text-purple-400" />
@@ -526,26 +471,35 @@ function PlaygroundHeader({
             </>
           )}
         </div>
+      </div>
 
-        {/* Export ZIP */}
+      {/* Bottom Section: Actions (Export ZIP & Deploy Rocket) & Settings */}
+      <div className="flex flex-row md:flex-col items-center gap-2">
+        <button
+          onClick={onSettingsToggle}
+          title="AI Generation Settings"
+          className="p-2 rounded-xl text-slate-400 hover:text-slate-100 hover:bg-slate-900 transition-all border border-slate-800 cursor-pointer"
+        >
+          <Settings2 className="size-4" />
+        </button>
+
         <button
           onClick={onExportZip}
-          className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 bg-slate-900 hover:bg-slate-800 text-slate-200 text-xs font-medium rounded-xl transition-all border border-slate-800 cursor-pointer shadow-xs"
+          title="Export Project Framework (Next.js, Vite, HTML)"
+          className="p-2 bg-slate-900 hover:bg-slate-800 text-slate-200 rounded-xl transition-all border border-slate-800 cursor-pointer shadow-xs"
         >
-          <Download className="size-3.5" />
-          <span>Export</span>
+          <Download className="size-4" />
         </button>
 
-        {/* Live Deploy */}
         <button
           onClick={onLiveDeploy}
-          className="flex items-center gap-1.5 px-3.5 py-1.5 bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 hover:from-blue-500 hover:to-purple-500 text-white text-xs font-semibold rounded-xl transition-all shadow-md shadow-blue-500/20 cursor-pointer"
+          title="Deploy Production Build"
+          className="p-2 bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 hover:from-blue-500 hover:to-purple-500 text-white rounded-xl transition-all shadow-md shadow-blue-500/20 cursor-pointer"
         >
-          <Rocket className="size-3.5" />
-          <span>Deploy</span>
+          <Rocket className="size-4" />
         </button>
       </div>
-    </div>
+    </aside>
   )
 }
 

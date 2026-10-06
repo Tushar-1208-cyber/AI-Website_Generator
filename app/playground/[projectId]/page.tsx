@@ -294,7 +294,7 @@ function PlaygroundPage() {
   }, [generatedCode, SaveDesignCode]);
 
 return (
-  <div className="relative flex h-screen min-h-0 min-w-0 flex-col overflow-hidden bg-slate-950">
+  <div className="relative flex h-screen min-h-0 min-w-0 flex-col md:flex-row overflow-hidden bg-slate-950">
     <PlaygroundHeader
       onSettingsToggle={() => setShowSettings((prev) => !prev)}
       currentDesignCode={generatedCode}

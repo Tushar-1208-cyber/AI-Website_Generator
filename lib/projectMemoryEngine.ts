@@ -17,8 +17,8 @@ export const INITIAL_PROJECT_MEMORIES: MemoryItem[] = [
   {
     id: 'mem-101',
     category: 'design',
-    title: 'Tailwind Dark Mode Standard',
-    rule: 'Always render dark mode background `bg-slate-900` or `bg-slate-950` with `text-slate-100` readability.',
+    title: 'Tailwind Light Theme Default Standard',
+    rule: 'Always render clean light mode UI by default (`bg-white` / `bg-slate-50` background with `text-slate-900` readability) unless the user explicitly requests Dark Mode in their prompt.',
     pinned: true,
     createdAt: 'Project Init',
   },

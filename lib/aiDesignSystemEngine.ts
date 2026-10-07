@@ -15,6 +15,20 @@ export interface ThemePreset {
 
 export const PRESET_THEMES: ThemePreset[] = [
   {
+    id: "clean-light-saas",
+    name: "Clean Light SaaS",
+    description: "Crisp blue accent with clean white & light slate background",
+    primaryBg: "bg-blue-600",
+    primaryHoverBg: "hover:bg-blue-700",
+    primaryText: "text-blue-600",
+    backgroundColor: "bg-slate-50",
+    cardBg: "bg-white",
+    borderRadius: "rounded-xl",
+    fontFamily: "font-sans",
+    borderStyle: "border-slate-200",
+    accentColor: "#2563eb",
+  },
+  {
     id: "dark-saas",
     name: "Modern Dark SaaS",
     description: "Sleek blue accent with dark slate background (v0 & Framer style)",

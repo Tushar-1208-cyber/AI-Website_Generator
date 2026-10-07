@@ -1,6 +1,6 @@
 "use client";
 
-import { ArrowUp, Sparkles } from 'lucide-react'
+import { ArrowUp, Sparkles, Mic, MicOff } from 'lucide-react'
 import React, { useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { Spinner } from '@/components/ui/spinner'
@@ -8,6 +8,7 @@ import QuickRefactorBar from './QuickRefactorBar'
 import AgentActivityPanel from './AgentActivityPanel'
 import { AgentStep, executeAgentTask } from '@/lib/autonomousAgentEngine'
 import { indexProject } from '@/lib/projectContextEngine'
+import { useVoiceInput } from '@/lib/useVoiceInput'
 
 type Message = {
   role: string
@@ -25,6 +26,10 @@ function ChatSection({ Messages, onSend, loading }: ChatSectionProps) {
   const [input, setInput] = useState<string>('')
   const [agentSteps, setAgentSteps] = useState<AgentStep[]>([])
   const [agentSummary, setAgentSummary] = useState<string | null>(null)
+
+  const { isListening, toggleVoiceInput } = useVoiceInput((transcript) => {
+    setInput((prev) => (prev ? `${prev} ${transcript}` : transcript));
+  });
 
   const handleSendMessage = async () => {
     if (!input.trim() || loading) return;
@@ -144,7 +149,7 @@ function ChatSection({ Messages, onSend, loading }: ChatSectionProps) {
           <div className="flex items-center gap-2">
             <textarea
               value={input}
-              placeholder='Type modification request...'
+              placeholder='Type or speak prompt...'
               className='flex-1 resize-none border border-slate-300 bg-white text-slate-900 text-xs rounded-2xl px-3.5 py-2.5 focus:outline-none focus:border-blue-500 h-12 leading-relaxed font-sans placeholder:text-slate-400 font-medium shadow-2xs'
               onChange={(event) => setInput(event.target.value)}
               onKeyDown={(event) => {
@@ -154,6 +159,19 @@ function ChatSection({ Messages, onSend, loading }: ChatSectionProps) {
                 }
               }}
             />
+            {/* Microphone Voice Input Button */}
+            <Button
+              type="button"
+              onClick={toggleVoiceInput}
+              title={isListening ? "Stop listening" : "Speak voice prompt 🎙️"}
+              className={`rounded-2xl h-12 px-3 shadow-xs transition-all cursor-pointer ${
+                isListening
+                  ? "bg-rose-600 hover:bg-rose-700 text-white animate-pulse"
+                  : "bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-300"
+              }`}
+            >
+              {isListening ? <MicOff className="size-4" /> : <Mic className="size-4" />}
+            </Button>
             <Button
               onClick={handleSendMessage}
               disabled={loading || !input.trim()}
@@ -162,7 +180,7 @@ function ChatSection({ Messages, onSend, loading }: ChatSectionProps) {
               <ArrowUp className="size-4" />
             </Button>
           </div>
-          <p className="text-[10px] text-slate-400 text-right px-1">Press ↵ to send • Shift + ↵ for line break</p>
+          <p className="text-[10px] text-slate-400 text-right px-1">Press ↵ to send • 🎙️ Mic for voice input</p>
         </div>
       </div>
     </div>

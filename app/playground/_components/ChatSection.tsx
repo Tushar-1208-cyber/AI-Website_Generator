@@ -81,7 +81,7 @@ function ChatSection({ Messages, onSend, loading }: ChatSectionProps) {
             <p className='text-xs text-slate-600 font-medium leading-relaxed'>What would you like to build or modify today?</p>
             <div className="grid grid-cols-1 gap-2 w-full max-w-xs text-left">
               {[
-                "🚀 Dark SaaS Product Landing Page",
+                "🚀 Modern SaaS Product Landing Page",
                 "👟 E-Commerce Storefront with Cart",
                 "📊 Analytics & Crypto Dashboard",
                 "🎨 Creative Agency Studio Portfolio"

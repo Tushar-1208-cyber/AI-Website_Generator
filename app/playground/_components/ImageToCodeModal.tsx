@@ -10,11 +10,14 @@ import {
   Zap,
   Sparkles,
   Code2,
+  Mic,
+  MicOff,
 } from 'lucide-react';
 import {
   convertImageToCode,
   ImageToCodeResult,
 } from '@/lib/imageToCodeEngine';
+import { useVoiceInput } from '@/lib/useVoiceInput';
 
 interface ImageToCodeModalProps {
   isOpen: boolean;
@@ -31,6 +34,10 @@ export default function ImageToCodeModal({
   const [figmaUrl, setFigmaUrl] = useState('');
   const [isConverting, setIsConverting] = useState(false);
   const [result, setResult] = useState<ImageToCodeResult | null>(null);
+
+  const { isListening, toggleVoiceInput } = useVoiceInput((transcript) => {
+    setFigmaUrl((prev) => (prev ? `${prev} ${transcript}` : transcript));
+  });
 
   if (!isOpen) return null;
 
@@ -128,18 +135,34 @@ export default function ImageToCodeModal({
               )}
             </div>
 
-            {/* Figma Link Input */}
+            {/* Figma Link / Description Input */}
             <div className="p-4 bg-slate-950 border border-slate-800 rounded-xl space-y-2">
-              <label className="text-xs font-semibold text-slate-300 flex items-center gap-1.5">
-                <Figma className="w-4 h-4 text-purple-400" /> Or Import from Figma URL
+              <label className="text-xs font-semibold text-slate-300 flex items-center justify-between">
+                <span className="flex items-center gap-1.5">
+                  <Figma className="w-4 h-4 text-purple-400" /> Or Import Figma URL / Speak Prompt
+                </span>
               </label>
-              <input
-                type="text"
-                placeholder="https://figma.com/file/..."
-                value={figmaUrl}
-                onChange={(e) => setFigmaUrl(e.target.value)}
-                className="w-full px-3 py-2 bg-slate-900 border border-slate-800 rounded-xl text-xs text-white focus:outline-none focus:border-indigo-500"
-              />
+              <div className="flex items-center gap-2">
+                <input
+                  type="text"
+                  placeholder="https://figma.com/file/... or speak prompt"
+                  value={figmaUrl}
+                  onChange={(e) => setFigmaUrl(e.target.value)}
+                  className="flex-1 px-3 py-2 bg-slate-900 border border-slate-800 rounded-xl text-xs text-white focus:outline-none focus:border-indigo-500"
+                />
+                <button
+                  type="button"
+                  onClick={toggleVoiceInput}
+                  title={isListening ? "Stop listening" : "Speak voice prompt 🎙️"}
+                  className={`p-2 rounded-xl transition-all ${
+                    isListening
+                      ? "bg-rose-600 text-white animate-pulse"
+                      : "bg-slate-900 text-slate-400 hover:text-white border border-slate-800"
+                  }`}
+                >
+                  {isListening ? <MicOff className="w-4 h-4" /> : <Mic className="w-4 h-4" />}
+                </button>
+              </div>
             </div>
 
             <button

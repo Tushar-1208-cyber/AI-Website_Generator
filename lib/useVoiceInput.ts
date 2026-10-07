@@ -1,25 +1,32 @@
 "use client";
 
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { toast } from "sonner";
 
+interface ISpeechRecognitionResult {
+  isFinal: boolean;
+  [index: number]: {
+    transcript: string;
+    confidence: number;
+  };
+}
+
 interface ISpeechRecognitionEvent {
+  resultIndex: number;
   results: {
-    [index: number]: {
-      [index: number]: {
-        transcript: string;
-      };
-    };
+    length: number;
+    [index: number]: ISpeechRecognitionResult;
   };
 }
 
 interface ISpeechRecognition {
   lang: string;
+  continuous: boolean;
   interimResults: boolean;
   maxAlternatives: number;
   onstart: () => void;
   onend: () => void;
-  onerror: (event: unknown) => void;
+  onerror: (event: { error?: string }) => void;
   onresult: (event: ISpeechRecognitionEvent) => void;
   start: () => void;
   stop: () => void;
@@ -27,11 +34,27 @@ interface ISpeechRecognition {
 
 /**
  * Custom React Hook for Voice-to-Text Microphone Input across prompt input fields.
- * Supports Web Speech API (Chrome, Edge, Safari, Opera).
+ * Fixes word duplication by processing only final speech segments.
+ * Supports continuous listening until explicitly toggled off by the user.
  */
 export function useVoiceInput(onTranscript: (text: string) => void) {
   const [isListening, setIsListening] = useState(false);
   const recognitionRef = useRef<ISpeechRecognition | null>(null);
+  const userWantsListeningRef = useRef<boolean>(false);
+  const lastFinalTranscriptRef = useRef<string>("");
+
+  useEffect(() => {
+    return () => {
+      userWantsListeningRef.current = false;
+      if (recognitionRef.current) {
+        try {
+          recognitionRef.current.stop();
+        } catch {
+          // ignore cleanup error
+        }
+      }
+    };
+  }, []);
 
   const toggleVoiceInput = () => {
     const win = typeof window !== "undefined" ? (window as unknown as {
@@ -46,37 +69,79 @@ export function useVoiceInput(onTranscript: (text: string) => void) {
       return;
     }
 
-    if (isListening) {
-      recognitionRef.current?.stop();
+    // User requested to STOP listening
+    if (userWantsListeningRef.current || isListening) {
+      userWantsListeningRef.current = false;
       setIsListening(false);
+      if (recognitionRef.current) {
+        try {
+          recognitionRef.current.stop();
+        } catch {
+          // ignore
+        }
+      }
+      toast.info("Microphone turned off 🔴");
       return;
     }
+
+    // User requested to START listening continuously
+    userWantsListeningRef.current = true;
+    lastFinalTranscriptRef.current = "";
 
     try {
       const recognition = new SpeechRecognition();
       recognition.lang = "en-US";
-      recognition.interimResults = false;
+      recognition.continuous = true;
+      recognition.interimResults = true;
       recognition.maxAlternatives = 1;
 
       recognition.onstart = () => {
         setIsListening(true);
-        toast.info("Listening... Speak your prompt now 🎙️");
+        toast.info("Continuous Voice Input Active 🎙️ (Click mic to stop)");
       };
 
       recognition.onend = () => {
-        setIsListening(false);
+        // Auto-restart if user hasn't explicitly clicked stop button
+        if (userWantsListeningRef.current) {
+          try {
+            recognition.start();
+          } catch {
+            // If restart fails, reset state
+            setIsListening(false);
+          }
+        } else {
+          setIsListening(false);
+        }
       };
 
-      recognition.onerror = () => {
-        setIsListening(false);
-        toast.error("Could not hear you clearly. Please try again.");
+      recognition.onerror = (event: { error?: string }) => {
+        // Ignore non-fatal network/no-speech errors during continuous listening
+        if (event.error === "no-speech" || event.error === "network") {
+          return;
+        }
+        if (event.error === "not-allowed" || event.error === "service-not-allowed") {
+          userWantsListeningRef.current = false;
+          setIsListening(false);
+          toast.error("Microphone permission denied. Please allow mic access in your browser settings.");
+        }
       };
 
       recognition.onresult = (event: ISpeechRecognitionEvent) => {
-        const transcript = event.results[0][0].transcript;
-        if (transcript) {
-          onTranscript(transcript);
-          toast.success("Voice prompt captured!");
+        let newFinalText = "";
+
+        for (let i = event.resultIndex; i < event.results.length; i++) {
+          const result = event.results[i];
+          if (result.isFinal && result[0]?.transcript) {
+            const cleanSegment = result[0].transcript.trim();
+            if (cleanSegment && cleanSegment !== lastFinalTranscriptRef.current) {
+              lastFinalTranscriptRef.current = cleanSegment;
+              newFinalText += (newFinalText ? " " : "") + cleanSegment;
+            }
+          }
+        }
+
+        if (newFinalText.trim()) {
+          onTranscript(newFinalText.trim());
         }
       };
 
@@ -84,6 +149,7 @@ export function useVoiceInput(onTranscript: (text: string) => void) {
       recognition.start();
     } catch (err) {
       console.error("Speech recognition error:", err);
+      userWantsListeningRef.current = false;
       setIsListening(false);
     }
   };

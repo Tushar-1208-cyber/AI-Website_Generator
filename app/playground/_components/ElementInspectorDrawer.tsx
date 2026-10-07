@@ -2,9 +2,10 @@
 
 import React, { useState } from "react";
 import { SelectedElementInfo } from "@/lib/elementInspector";
-import { Crosshair, X, Send, Tag, Sliders, Sparkles, Code, Copy, Check, Info } from "lucide-react";
+import { Crosshair, X, Send, Tag, Sliders, Sparkles, Code, Copy, Check, Info, Mic, MicOff } from "lucide-react";
 import VisualBuilderPanel from "./VisualBuilderPanel";
 import { VisualElementStyles, buildTailwindClasses } from "@/lib/visualBuilderEngine";
+import { useVoiceInput } from "@/lib/useVoiceInput";
 
 interface ElementInspectorDrawerProps {
   selectedElement: SelectedElementInfo;
@@ -20,6 +21,10 @@ export default function ElementInspectorDrawer({
   const [activeTab, setActiveTab] = useState<"ai" | "visual" | "css">("ai");
   const [promptInput, setPromptInput] = useState<string>("");
   const [copiedKey, setCopiedKey] = useState<string | null>(null);
+
+  const { isListening, toggleVoiceInput } = useVoiceInput((transcript) => {
+    setPromptInput((prev) => (prev ? `${prev} ${transcript}` : transcript));
+  });
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -172,7 +177,7 @@ export default function ElementInspectorDrawer({
           </div>
 
           {/* Prompt Form */}
-          <form onSubmit={handleSubmit} className="flex items-center gap-2">
+          <form onSubmit={handleSubmit} className="flex items-center gap-1.5">
             <input
               type="text"
               value={promptInput}
@@ -181,6 +186,18 @@ export default function ElementInspectorDrawer({
               autoFocus
               className="flex-1 bg-slate-950 border border-slate-800 text-slate-100 text-xs px-3 py-2 rounded-xl focus:outline-none focus:border-blue-500"
             />
+            <button
+              type="button"
+              onClick={toggleVoiceInput}
+              title={isListening ? "Stop listening" : "Speak voice prompt 🎙️"}
+              className={`p-2 rounded-xl transition-all ${
+                isListening
+                  ? "bg-rose-600 text-white animate-pulse"
+                  : "bg-slate-800 text-slate-300 hover:text-white hover:bg-slate-700"
+              }`}
+            >
+              {isListening ? <MicOff className="size-3.5" /> : <Mic className="size-3.5" />}
+            </button>
             <button
               type="submit"
               disabled={!promptInput.trim()}

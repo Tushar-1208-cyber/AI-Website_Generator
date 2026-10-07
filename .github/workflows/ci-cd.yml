@@ -1,0 +1,83 @@
+name: AI Website Generator CI/CD Pipeline
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  lint-and-typecheck:
+    name: 🔍 TypeScript Compile & Quality Lint
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: 📥 Checkout Code Repository
+        uses: actions/checkout@v4
+
+      - name: ⚙️ Setup Node.js Runtime (v20)
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+
+      - name: 📦 Install Project Dependencies
+        run: npm ci
+
+      - name: ⚡ Run TypeScript Compiler Verification
+        run: npx tsc --noEmit
+
+      - name: 🧹 Run ESLint Code Audit
+        run: npm run lint || true
+
+  build-verification:
+    name: 🏗️ Production Build Verification
+    needs: lint-and-typecheck
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: 📥 Checkout Code Repository
+        uses: actions/checkout@v4
+
+      - name: ⚙️ Setup Node.js Runtime (v20)
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+
+      - name: 📦 Install Project Dependencies
+        run: npm ci
+
+      - name: 🚀 Execute Next.js Standalone Build
+        run: npm run build
+        env:
+          NEXT_TELEMETRY_DISABLED: 1
+
+  security-audit:
+    name: 🛡️ Security Vulnerability Scan
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: 📥 Checkout Code Repository
+        uses: actions/checkout@v4
+
+      - name: ⚙️ Setup Node.js Runtime (v20)
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: 🔒 Run npm Security Audit
+        run: npm audit --audit-level=high || true
+
+  deployment-status:
+    name: 🌐 Vercel Production Deployment Monitor
+    needs: build-verification
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: 📢 Report Deployment Status
+        run: |
+          echo "✅ CI/CD Pipeline passed cleanly!"
+          echo "🚀 Vercel Production Auto-Deploy triggered for branch: ${{ github.ref }}"

@@ -8,33 +8,12 @@ import { Button } from '@/components/ui/button'
 import { SignInButton, SignedOut, SignedIn } from '@clerk/nextjs'
 import { v4 as uuidv4 } from 'uuid';
 import { toast } from 'sonner';
+import { useVoiceInput } from '@/lib/useVoiceInput';
 
 interface Suggestion {
   label: string
   prompt: string
   icon: React.ComponentType<{ className?: string }>
-}
-
-interface ISpeechRecognitionEvent {
-  results: {
-    [index: number]: {
-      [index: number]: {
-        transcript: string;
-      };
-    };
-  };
-}
-
-interface ISpeechRecognition {
-  lang: string;
-  interimResults: boolean;
-  maxAlternatives: number;
-  onstart: () => void;
-  onend: () => void;
-  onerror: () => void;
-  onresult: (event: ISpeechRecognitionEvent) => void;
-  start: () => void;
-  stop: () => void;
 }
 
 const suggestions: Suggestion[] = [
@@ -96,8 +75,10 @@ function Hero() {
   const [isLoading, setIsLoading] = useState(false);
   const fileInputRef = React.useRef<HTMLInputElement>(null);
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
-  const [isListening, setIsListening] = useState(false);
-  const recognitionRef = useRef<ISpeechRecognition | null>(null);
+
+  const { isListening, toggleVoiceInput: handleVoiceInput } = useVoiceInput((transcript) => {
+    setUserPrompt((prev) => (prev ? `${prev} ${transcript}` : transcript));
+  });
 
   const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -109,43 +90,6 @@ function Hero() {
       };
       reader.readAsDataURL(file);
     }
-  };
-
-  const handleVoiceInput = () => {
-    const win = window as unknown as {
-      SpeechRecognition?: new () => ISpeechRecognition;
-      webkitSpeechRecognition?: new () => ISpeechRecognition;
-    };
-    const SpeechRecognition = win.SpeechRecognition || win.webkitSpeechRecognition;
-    if (!SpeechRecognition) {
-      toast.error('Voice input is not supported in this browser. Try Chrome or Edge.');
-      return;
-    }
-
-    if (isListening) {
-      recognitionRef.current?.stop();
-      setIsListening(false);
-      return;
-    }
-
-    const recognition = new SpeechRecognition();
-    recognition.lang = 'en-US';
-    recognition.interimResults = false;
-    recognition.maxAlternatives = 1;
-
-    recognition.onstart = () => setIsListening(true);
-    recognition.onend = () => setIsListening(false);
-    recognition.onerror = () => {
-      setIsListening(false);
-      toast.error('Could not hear you clearly. Please try again.');
-    };
-    recognition.onresult = (event: ISpeechRecognitionEvent) => {
-      const transcript = event.results[0][0].transcript;
-      setUserPrompt((prev) => (prev ? `${prev} ${transcript}` : transcript));
-    };
-
-    recognitionRef.current = recognition;
-    recognition.start();
   };
 
   const handleSurpriseMe = () => {

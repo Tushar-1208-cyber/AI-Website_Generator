@@ -10,6 +10,8 @@ import {
   Code2,
   Terminal,
   ShieldAlert,
+  Mic,
+  MicOff,
 } from 'lucide-react';
 import {
   PRESET_BACKEND_ENDPOINTS,
@@ -17,6 +19,7 @@ import {
   scaffoldBackendEndpoint,
   simulateEndpointCall,
 } from '@/lib/aiBackendEngine';
+import { useVoiceInput } from '@/lib/useVoiceInput';
 
 interface BackendGeneratorModalProps {
   filesMap: Record<string, string>;
@@ -38,6 +41,10 @@ export default function BackendGeneratorModal({
   const [testResult, setTestResult] = useState<{ status: number; data: unknown; latencyMs: number } | null>(null);
   const [isSimulating, setIsSimulating] = useState(false);
   const [scaffoldSuccess, setScaffoldSuccess] = useState<string | null>(null);
+
+  const { isListening, toggleVoiceInput } = useVoiceInput((transcript) => {
+    setTestPayload((prev) => (prev ? `${prev} ${transcript}` : transcript));
+  });
 
   if (!isOpen) return null;
 
@@ -187,7 +194,22 @@ export default function BackendGeneratorModal({
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 {/* Request Body Editor */}
                 <div>
-                  <label className="text-[11px] text-slate-400 mb-1 block">Request Body (JSON)</label>
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="text-[11px] text-slate-400">Request Body (JSON / Voice)</label>
+                    <button
+                      type="button"
+                      onClick={toggleVoiceInput}
+                      title={isListening ? "Stop listening" : "Speak voice prompt 🎙️"}
+                      className={`text-[10px] px-2 py-0.5 rounded transition-all flex items-center gap-1 ${
+                        isListening
+                          ? "bg-rose-600 text-white animate-pulse"
+                          : "bg-slate-800 text-slate-300 hover:text-white"
+                      }`}
+                    >
+                      {isListening ? <MicOff className="w-3 h-3" /> : <Mic className="w-3 h-3" />}
+                      <span>{isListening ? "Listening..." : "Voice"}</span>
+                    </button>
+                  </div>
                   <textarea
                     value={testPayload}
                     onChange={(e) => setTestPayload(e.target.value)}

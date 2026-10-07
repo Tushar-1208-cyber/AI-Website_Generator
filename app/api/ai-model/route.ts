@@ -75,6 +75,7 @@ When generating or modifying a web application, generate complete, production-re
 
 CRITICAL INSTRUCTIONS:
 - Build ONLY the end-user application requested by the user (e.g. SaaS product, landing page, store).
+- DEFAULT THEME & STYLING: Always design the website UI in a clean, modern, bright LIGHT THEME by default (light backgrounds like bg-white, bg-slate-50, text-slate-900, crisp light card containers) UNLESS the user explicitly requests Dark Mode in their prompt. Never default to dark backgrounds (bg-slate-900 / bg-black / bg-slate-950) unless explicitly requested by the user.
 - DO NOT generate any host IDE wrapper, Playground toolbar, 'AiSite.builder' logo, 'AI ASSISTANT' panel, or prompt chat sidebar.
 - The primary 'index.html' must start directly with standard HTML5 <!DOCTYPE html><html lang="en"> markup of the target website itself.
 - You MUST format every file in the project using explicit file header tags:
@@ -91,7 +92,7 @@ Example structure:
   <script src="https://cdn.tailwindcss.com"></script>
   <link rel="stylesheet" href="css/styles.css">
 </head>
-<body>
+<body class="bg-slate-50 text-slate-900">
 ...
 <script src="js/app.js"></script>
 </body>
@@ -111,6 +112,7 @@ RULES:
 5. Provide COMPLETE code for all files without placeholders or truncated code.
 6. Do NOT wrap output in single markdown code fences around the entire project; use '--- FILE: path ---' markers.
 7. IMAGES: Use real high-resolution Unsplash image URLs. Never use grey placehold.co images.
+8. THEME: Default to clean light mode styling unless dark mode is specifically asked for.
 `;
 
     const userPrompt = messages.map((m: ChatMessageItem) => `${m.role || 'user'}: ${m.content || ''}`).join("\n");

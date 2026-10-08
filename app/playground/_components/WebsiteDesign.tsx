@@ -651,7 +651,12 @@ function WebsiteDesign({
       {showTestModal && (
         <TestingAgentModal
           filesMap={filesMap}
+          projectID={projectId}
           onClose={() => onCloseModal?.()}
+          onOpenFile={(filePath) => {
+            onSelectFile?.(filePath);
+            onTabChange?.("code");
+          }}
           onApplyFixes={(fixedMap) => {
             const serialized = serializeMultiFiles(fixedMap);
             onCodeChange?.(serialized);

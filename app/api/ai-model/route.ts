@@ -4,13 +4,13 @@ import { GoogleGenerativeAI, Part } from "@google/generative-ai";
 import { currentUser } from "@clerk/nextjs/server";
 import { db } from "@/config/db";
 import { usersTable } from "@/config/schema";
-import { eq } from "drizzle-orm";
+import { eq, sql, and, gte } from "drizzle-orm";
 import { ChatMessageItem } from "@/types/types";
 
 const GEMINI_KEY = process.env.GEMINI_API_KEY;
 
 const lastRequestByUser = new Map<string, number>();
-const MIN_INTERVAL_MS = 3000; // 1 generation per 3 seconds per user
+const MIN_INTERVAL_MS = 2000; // 1 request per 2 seconds per user
 
 function isRateLimited(userEmail: string): boolean {
   const now = Date.now();
@@ -40,28 +40,45 @@ export async function POST(req: NextRequest) {
 
     if (isRateLimited(userEmail)) {
       return NextResponse.json(
-        { error: "You're generating too fast. Please wait a few seconds and try again." },
+        { error: "You're generating too fast. Please wait a moment and try again." },
         { status: 429 }
       );
     }
 
-    const existingUser = await db
-      .select()
-      .from(usersTable)
-      .where(eq(usersTable.email, userEmail))
-      .limit(1);
+    // 1. Transaction-safe atomic credit deduction
+    // Ensures thread-safe check and decrement without race conditions
+    const updatedUser = await db
+      .update(usersTable)
+      .set({ credits: sql`${usersTable.credits} - 1` })
+      .where(and(eq(usersTable.email, userEmail), gte(usersTable.credits, 1)))
+      .returning({ email: usersTable.email, remainingCredits: usersTable.credits });
 
-    if (existingUser.length > 0) {
-      const credits = existingUser[0].credits ?? 0;
-      if (credits <= 0) {
+    if (updatedUser.length === 0) {
+      // Check if user exists at all or if credits were 0
+      const existingUser = await db
+        .select()
+        .from(usersTable)
+        .where(eq(usersTable.email, userEmail))
+        .limit(1);
+
+      if (existingUser.length > 0 && (existingUser[0].credits ?? 0) <= 0) {
         return NextResponse.json(
-          { error: "No credits remaining. Please upgrade your plan in pricing page." },
+          { error: "No credits remaining. Please upgrade your plan on the pricing page." },
           { status: 403 }
         );
       }
     }
 
-    const { messages, modelName = "gemini-3.6-flash", image } = await req.json();
+    const body = await req.json();
+    const {
+      messages,
+      modelName = "gemini-3.5-flash",
+      image,
+      mode = "full",
+      targetElement,
+      currentFilesSummary,
+    } = body;
+
     if (!messages || !Array.isArray(messages) || messages.length === 0) {
       return NextResponse.json(
         { error: "Missing 'messages' array in request body" },
@@ -69,16 +86,48 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const SYSTEM_INSTRUCTION = `
+    const isPatchMode = mode === "patch" || !!targetElement;
+
+    const PATCH_SYSTEM_INSTRUCTION = `
+You are a senior full-stack AI visual builder and code editor.
+Modify the web application files precisely using targeted diff/patch operations.
+
+OUTPUT FORMAT:
+Return ONLY a valid JSON object wrapped inside a \`\`\`json ... \`\`\` markdown code fence matching this schema:
+
+{
+  "type": "patch",
+  "summary": "Brief description of edits made",
+  "operations": [
+    {
+      "op": "PATCH_FILE",
+      "file": "index.html",
+      "changes": [
+        {
+          "search": "<exact existing code to replace>",
+          "replace": "<new replacement code>"
+        }
+      ]
+    }
+  ]
+}
+
+RULES:
+1. 'search' MUST match a unique code fragment in the target file. Include surrounding context lines if needed for uniqueness.
+2. Supported ops: 'PATCH_FILE', 'CREATE_FILE', 'DELETE_FILE', 'RENAME_FILE', 'UPDATE_FILE'.
+3. If creating a new file, set "op": "CREATE_FILE" and provide "content".
+4. If a full rebuild is necessary, set "type": "full" and provide a "files" object mapping paths to contents.
+`;
+
+    const FULL_SYSTEM_INSTRUCTION = `
 You are a senior full-stack AI web developer and designer.
 When generating or modifying a web application, generate complete, production-ready, clean, modern code split into logical files.
 
 CRITICAL INSTRUCTIONS:
 - Build ONLY the end-user application requested by the user (e.g. SaaS product, landing page, store).
-- DEFAULT THEME & STYLING: Always design the website UI in a clean, modern, bright LIGHT THEME by default (light backgrounds like bg-white, bg-slate-50, text-slate-900, crisp light card containers) UNLESS the user explicitly requests Dark Mode in their prompt. Never default to dark backgrounds (bg-slate-900 / bg-black / bg-slate-950) unless explicitly requested by the user.
-- DO NOT generate any host IDE wrapper, Playground toolbar, 'AiSite.builder' logo, 'AI ASSISTANT' panel, or prompt chat sidebar.
-- The primary 'index.html' must start directly with standard HTML5 <!DOCTYPE html><html lang="en"> markup of the target website itself.
-- You MUST format every file in the project using explicit file header tags:
+- DEFAULT THEME & STYLING: Always design the website UI in a clean, modern, bright LIGHT THEME by default (light backgrounds like bg-white, bg-slate-50, text-slate-900, crisp light card containers) UNLESS the user explicitly requests Dark Mode in their prompt.
+- DO NOT generate host IDE wrappers or prompt sidebars.
+- Format every file using explicit file header tags:
 --- FILE: path/to/file.ext ---
 
 Example structure:
@@ -90,36 +139,28 @@ Example structure:
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>App</title>
   <script src="https://cdn.tailwindcss.com"></script>
-  <link rel="stylesheet" href="css/styles.css">
 </head>
 <body class="bg-slate-50 text-slate-900">
 ...
-<script src="js/app.js"></script>
 </body>
 </html>
-
---- FILE: css/styles.css ---
-/* Custom styling */
-
---- FILE: js/app.js ---
-// Interactive JavaScript logic
-
-RULES:
-1. Always include a primary 'index.html' file.
-2. Separate CSS into stylesheet files (e.g., 'css/styles.css' or Tailwind CDN + custom CSS).
-3. Separate JS into script files (e.g., 'js/app.js').
-4. Include backend/API server code (e.g., 'server.js' or 'api/routes.js') if full-stack backend functionality is requested.
-5. Provide COMPLETE code for all files without placeholders or truncated code.
-6. Do NOT wrap output in single markdown code fences around the entire project; use '--- FILE: path ---' markers.
-7. IMAGES: Use real high-resolution Unsplash image URLs. Never use grey placehold.co images.
-8. THEME: Default to clean light mode styling unless dark mode is specifically asked for.
 `;
 
-    const userPrompt = messages.map((m: ChatMessageItem) => `${m.role || 'user'}: ${m.content || ''}`).join("\n");
-    const fullPrompt = `${SYSTEM_INSTRUCTION}\n\nUSER REQUEST:\n${userPrompt}`;
+    const systemInstruction = isPatchMode ? PATCH_SYSTEM_INSTRUCTION : FULL_SYSTEM_INSTRUCTION;
+
+    let userPrompt = messages.map((m: ChatMessageItem) => `${m.role || 'user'}: ${m.content || ''}`).join("\n");
+
+    if (targetElement) {
+      userPrompt += `\n\nTARGET VISUAL ELEMENT TO EDIT:\nTag: ${targetElement.tagName}\nSelector: ${targetElement.selector}\nCurrent Classes: ${targetElement.className}\nExisting Text/HTML: ${targetElement.innerHTML || targetElement.textContent}`;
+    }
+
+    if (currentFilesSummary) {
+      userPrompt += `\n\nEXISTING APPLICATION FILES SUMMARY:\n${currentFilesSummary}`;
+    }
+
+    const fullPrompt = `${systemInstruction}\n\nUSER REQUEST:\n${userPrompt}`;
 
     const genAI = new GoogleGenerativeAI(GEMINI_KEY);
-
     const parts: Part[] = [{ text: fullPrompt }];
 
     if (image && typeof image === "string" && image.startsWith("data:")) {
@@ -130,89 +171,89 @@ RULES:
           inlineData: { mimeType, data: base64Data },
         });
         parts.unshift({
-          text: "The user attached an image of a design/screenshot. Recreate it as closely as possible using the instructions below.",
+          text: "The user attached a visual screenshot. Recreate or edit the UI elements to match it.",
         });
       }
     }
 
-    // Helper: Map user model request to verified active Google Gemini API endpoints with robust fallbacks
     const getModelFallbackList = (requested: string): string[] => {
       const activeWorkingModels = [
         "gemini-3.5-flash",
         "gemini-3.5-flash-lite",
         "gemini-3.6-flash",
       ];
-
       const primary = activeWorkingModels.includes(requested) ? requested : "gemini-3.5-flash";
-      const fallbacks = [primary, ...activeWorkingModels];
-      return Array.from(new Set(fallbacks));
+      return Array.from(new Set([primary, ...activeWorkingModels]));
     };
 
     const fallbackModels = getModelFallbackList(modelName || "gemini-3.5-flash");
 
-    let generatedText = "";
-    let lastError: unknown = null;
+    // 2. Real-time streaming generator
+    let activeStream: AsyncIterable<any> | null = null;
+    let selectedModelName = "";
 
     for (const currentModel of fallbackModels) {
-      let attempts = 0;
-      const maxAttempts = 3;
-      let modelSuccess = false;
-
-      while (attempts < maxAttempts && !modelSuccess) {
-        try {
-          attempts++;
-          console.log(`[AI Generation] Trying model: ${currentModel} (Attempt ${attempts})`);
-          const model = genAI.getGenerativeModel({ model: currentModel });
-          const result = await model.generateContent({
-            contents: [{ role: "user", parts }],
-          });
-          generatedText = result.response.text();
-          if (generatedText && generatedText.trim()) {
-            console.log(`[AI Generation] Successfully generated output using model: ${currentModel}`);
-            modelSuccess = true;
-            break;
-          }
-        } catch (err: unknown) {
-          lastError = err;
-          const errMsg = err instanceof Error ? err.message : String(err);
-          console.warn(`[AI Generation] Model ${currentModel} attempt ${attempts} failed (${errMsg}). Retrying...`);
-          if (attempts < maxAttempts) {
-            await new Promise((resolve) => setTimeout(resolve, 800));
-          }
-        }
-      }
-
-      if (modelSuccess) {
+      try {
+        console.log(`[AI Stream] Initializing stream with model: ${currentModel}`);
+        const model = genAI.getGenerativeModel({ model: currentModel });
+        const streamResult = await model.generateContentStream({
+          contents: [{ role: "user", parts }],
+        });
+        activeStream = streamResult.stream;
+        selectedModelName = currentModel;
         break;
+      } catch (err) {
+        console.warn(`[AI Stream] Model ${currentModel} stream initiation failed:`, err);
       }
     }
 
-    if (!generatedText) {
-      console.error("[AI Generation] All model attempts failed:", lastError);
+    if (!activeStream) {
+      // Refund credit if initialization failed completely
+      if (updatedUser.length > 0) {
+        await db
+          .update(usersTable)
+          .set({ credits: sql`${usersTable.credits} + 1` })
+          .where(eq(usersTable.email, userEmail));
+      }
       return NextResponse.json(
-        { error: "AI servers are currently experiencing high traffic. Please try clicking Send again in a few seconds." },
+        { error: "AI service high traffic. Failed to initiate stream. Please try again." },
         { status: 503 }
       );
     }
 
-    if (existingUser.length > 0) {
-      const currentCredits = existingUser[0].credits ?? 0;
-      await db
-        .update(usersTable)
-        .set({ credits: Math.max(0, currentCredits - 1) })
-        .where(eq(usersTable.email, userEmail));
-    }
+    console.log(`[AI Stream] Streaming response started using model: ${selectedModelName}`);
 
-    return new Response(generatedText, {
+    // Create ReadableStream from Gemini async iterable
+    const readableStream = new ReadableStream({
+      async start(controller) {
+        const encoder = new TextEncoder();
+        try {
+          for await (const chunk of activeStream) {
+            const text = chunk.text();
+            if (text) {
+              controller.enqueue(encoder.encode(text));
+            }
+          }
+          controller.close();
+        } catch (streamError) {
+          console.error("[AI Stream] Error during streaming:", streamError);
+          controller.error(streamError);
+        }
+      },
+    });
+
+    return new Response(readableStream, {
       status: 200,
-      headers: { "Content-Type": "text/plain; charset=utf-8" },
+      headers: {
+        "Content-Type": "text/plain; charset=utf-8",
+        "Cache-Control": "no-cache, no-transform",
+        "Connection": "keep-alive",
+        "X-Content-Type-Options": "nosniff",
+      },
     });
   } catch (error: unknown) {
-    console.error("Gemini API error:", error);
+    console.error("Gemini Route error:", error);
     const errMessage = error instanceof Error ? error.message : String(error);
-    return NextResponse.json(
-      { error: errMessage },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: errMessage }, { status: 500 });
   }
 }

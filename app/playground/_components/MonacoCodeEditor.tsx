@@ -41,15 +41,15 @@ export default function MonacoCodeEditor({
       if (!model) return;
 
       const markers = issues
-        .filter((issue) => issue.file === filePath)
+        .filter((issue) => issue.filePath === filePath)
         .map((issue) => ({
-          startLineNumber: issue.line || 1,
+          startLineNumber: issue.lineNumber || 1,
           startColumn: 1,
-          endLineNumber: issue.line || 1,
+          endLineNumber: issue.lineNumber || 1,
           endColumn: 100,
-          message: `${issue.title}: ${issue.description}`,
+          message: issue.message,
           severity:
-            issue.severity === "error"
+            issue.severity === "critical"
               ? monaco.MarkerSeverity.Error
               : issue.severity === "warning"
               ? monaco.MarkerSeverity.Warning
@@ -65,7 +65,7 @@ export default function MonacoCodeEditor({
   const handleEditorDidMount = (editor: any, monacoInstance: any) => {
     editorRef.current = editor;
 
-    // Configure editor shortcuts and options
+    // Configure editor shortcuts
     editor.addCommand(monacoInstance.KeyMod.Alt | monacoInstance.KeyMod.Shift | monacoInstance.KeyCode.KeyF, () => {
       editor.getAction("editor.action.formatDocument")?.run();
     });

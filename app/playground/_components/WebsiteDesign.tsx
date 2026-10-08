@@ -9,6 +9,7 @@ import {
   Zap,
 } from "lucide-react";
 import FileExplorer from "./FileExplorer";
+import MonacoCodeEditor from "./MonacoCodeEditor";
 import ApiConsole from "./ApiConsole";
 import ElementInspectorDrawer from "./ElementInspectorDrawer";
 import DeployModal from "./DeployModal";
@@ -473,14 +474,13 @@ function WebsiteDesign({
                 })}
               </div>
 
-              {/* Code Textarea */}
-              <textarea
+              {/* Monaco IDE Code Editor */}
+              <MonacoCodeEditor
+                filePath={activeFilePath}
                 value={activeFileContent}
-                onChange={(e) => handleFileContentChange(activeFilePath, e.target.value)}
-                onBlur={(e) => handleFileContentCommit(activeFilePath, e.target.value)}
-                className="min-h-0 w-full flex-1 resize-none overflow-auto bg-slate-950 p-4 font-mono text-xs text-slate-200 focus:outline-none leading-relaxed"
-                spellCheck={false}
-                placeholder={`// File: ${activeFilePath}`}
+                onChange={(newContent) => handleFileContentChange(activeFilePath, newContent)}
+                onCommit={(newContent) => handleFileContentCommit(activeFilePath, newContent)}
+                issues={detectedIssues}
               />
             </div>
           </div>

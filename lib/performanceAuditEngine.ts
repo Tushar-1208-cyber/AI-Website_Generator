@@ -209,6 +209,42 @@ export function runProjectPerformanceAudit(filesMap: Record<string, string>): Au
 }
 
 /**
+ * Automatically applies fixes to resolve performance & accessibility audit issues across single HTML string.
+ */
+export function autoFixAuditIssues(htmlContent: string): {
+  fixedHtml: string;
+  fixesApplied: string[];
+} {
+  let fixed = htmlContent;
+  const fixesApplied: string[] = [];
+
+  if (fixed.includes('<html') && !fixed.toLowerCase().includes('lang=')) {
+    fixed = fixed.replace(/<html/i, '<html lang="en"');
+    fixesApplied.push('Added `lang="en"` attribute to <html> tag');
+  }
+
+  if (fixed.match(/<img(?![^>]*\balt=)[^>]*>/gi)) {
+    fixed = fixed.replace(/<img(?![^>]*\balt=)([^>]*)>/gi, '<img alt="AI Generated Graphic"$1>');
+    fixesApplied.push('Injected fallback `alt="AI Generated Graphic"` onto image tags');
+  }
+
+  if (fixed.match(/<button(?![^>]*\baria-label=)[^>]*>\s*<svg/gi)) {
+    fixed = fixed.replace(/(<button(?![^>]*\baria-label=)[^>]*>)/gi, '$1'.replace('>', ' aria-label="Interactive Button">'));
+    fixesApplied.push('Injected `aria-label="Interactive Button"` onto icon buttons');
+  }
+
+  if (fixed.includes('<head>') && !fixed.toLowerCase().includes('<title>')) {
+    fixed = fixed.replace(/<head>/i, '<head>\n  <title>AI Web Application</title>\n  <meta name="description" content="Generated with AI Website Generator Pro" />');
+    fixesApplied.push('Inserted missing `<title>` and `<meta name="description">` tags into <head>');
+  }
+
+  return {
+    fixedHtml: fixed,
+    fixesApplied,
+  };
+}
+
+/**
  * Automatically applies fixes across filesMap for performance issues
  */
 export function autoFixProjectAuditIssues(filesMap: Record<string, string>): {

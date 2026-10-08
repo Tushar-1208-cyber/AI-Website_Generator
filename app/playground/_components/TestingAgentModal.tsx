@@ -100,7 +100,7 @@ export default function TestingAgentModal({
     async function loadHistory() {
       setIsLoadingHistory(true);
       try {
-        const res = await fetch(`/api/testing/history?projectID=${encodeURIComponent(projectID)}`);
+        const res = await fetch(`/api/testing/history?projectID=${encodeURIComponent(projectID || "")}`);
         if (res.ok) {
           const data = await res.json();
           if (isMounted && data.history) {

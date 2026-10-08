@@ -801,6 +801,10 @@ function WebsiteDesign({
           htmlCode={activeFileContent || generatedCode}
           isOpen={showAuditModal}
           onClose={() => onCloseModal?.()}
+          onOpenFile={(filePath) => {
+            setSelectedFilePath(filePath);
+            setInternalActiveTab("code");
+          }}
           onApplyFixedCode={(fixedHtml) => {
             handleFileContentChange(activeFilePath, fixedHtml);
             handleFileContentCommit(activeFilePath, fixedHtml);

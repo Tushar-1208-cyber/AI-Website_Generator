@@ -69,3 +69,17 @@ export const projectGitHubRepositoriesTable = pgTable("project_github_repositori
   connectedOn: timestamp().defaultNow(),
   updatedOn: timestamp().defaultNow(),
 })
+
+export const testRunsTable = pgTable("test_runs", {
+  id: integer().primaryKey().generatedAlwaysAsIdentity(),
+  projectID: varchar({ length: 255 }).notNull(),
+  userEmail: varchar({ length: 255 }).references(() => usersTable.email),
+  scorePercent: integer().notNull(),
+  totalTests: integer().notNull(),
+  passedTests: integer().notNull(),
+  failedTests: integer().notNull(),
+  categories: jsonb().notNull(),
+  issues: jsonb().notNull(),
+  createdOn: timestamp().defaultNow(),
+})
+

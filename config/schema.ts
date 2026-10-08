@@ -44,3 +44,28 @@ export const deploymentsTable = pgTable("deployments", {
   createdOn: timestamp().defaultNow(),
   readyOn: timestamp(),
 })
+
+export const githubAccountsTable = pgTable("github_accounts", {
+  id: integer().primaryKey().generatedAlwaysAsIdentity(),
+  userEmail: varchar({ length: 255 }).notNull().unique().references(() => usersTable.email),
+  githubUserId: varchar({ length: 255 }),
+  username: varchar({ length: 255 }).notNull(),
+  avatarUrl: text(),
+  encryptedAccessToken: text().notNull(),
+  createdOn: timestamp().defaultNow(),
+  updatedOn: timestamp().defaultNow(),
+})
+
+export const projectGitHubRepositoriesTable = pgTable("project_github_repositories", {
+  id: integer().primaryKey().generatedAlwaysAsIdentity(),
+  projectID: varchar({ length: 255 }).notNull().references(() => projectsTable.projectID),
+  userEmail: varchar({ length: 255 }).notNull().references(() => usersTable.email),
+  repositoryId: varchar({ length: 255 }),
+  owner: varchar({ length: 255 }).notNull(),
+  repoName: varchar({ length: 255 }).notNull(),
+  branch: varchar({ length: 255 }).notNull().default("main"),
+  isPrivate: integer().default(1),
+  repoUrl: text().notNull(),
+  connectedOn: timestamp().defaultNow(),
+  updatedOn: timestamp().defaultNow(),
+})

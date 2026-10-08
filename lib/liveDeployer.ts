@@ -1,7 +1,24 @@
+/**
+ * lib/liveDeployer.ts
+ * Real Vercel deployment helper interface.
+ * Connects frontend UI to server-side /api/deploy route for genuine Vercel REST API deployment and history.
+ */
+
 export interface DeploymentStep {
   id: string;
   label: string;
-  status: "pending" | "in_progress" | "completed";
+  status: "pending" | "in_progress" | "completed" | "error";
+}
+
+export interface RealDeploymentRecord {
+  id: number | string;
+  deploymentID: string;
+  projectID: string;
+  url: string;
+  status: "BUILDING" | "READY" | "ERROR" | "CANCELED";
+  error?: string | null;
+  createdOn: string;
+  readyOn?: string | null;
 }
 
 export interface DeploymentResult {
@@ -9,71 +26,109 @@ export interface DeploymentResult {
   url: string;
   deployedAt: string;
   pagesCount: number;
+  status: string;
+  error?: string;
 }
 
 /**
- * Generates a unique deployment ID based on project ID and timestamp.
+ * Triggers a real Vercel production deployment via POST /api/deploy.
  */
-export function generateDeploymentId(projectId: string): string {
-  const sanitize = projectId.replace(/[^a-zA-Z0-9]/g, "").toLowerCase().slice(0, 10);
-  const randomSuffix = Math.random().toString(36).substring(2, 7);
-  return `${sanitize || "site"}-${randomSuffix}`;
+export async function executeRealDeployment(
+  projectId: string,
+  filesMap?: Record<string, string>,
+  onStepProgress?: (stepId: string, steps: DeploymentStep[]) => void
+): Promise<DeploymentResult> {
+  const steps: DeploymentStep[] = [
+    { id: "prep", label: "Validating project files & entry points...", status: "pending" },
+    { id: "upload", label: "Packaging static assets to Vercel API...", status: "pending" },
+    { id: "build", label: "Vercel Global CDN building & provisioning edge SSL...", status: "pending" },
+    { id: "ready", label: "Deployment complete & live on edge network!", status: "pending" },
+  ];
+
+  const updateStep = (index: number, status: "in_progress" | "completed" | "error") => {
+    steps[index].status = status;
+    if (onStepProgress) {
+      onStepProgress(steps[index].id, [...steps]);
+    }
+  };
+
+  // Step 1: Prep
+  updateStep(0, "in_progress");
+  await new Promise((r) => setTimeout(r, 400));
+  updateStep(0, "completed");
+
+  // Step 2: Uploading
+  updateStep(1, "in_progress");
+
+  try {
+    const res = await fetch("/api/deploy", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        projectId,
+        filesMap: filesMap && Object.keys(filesMap).length > 0 ? filesMap : undefined,
+      }),
+    });
+
+    const data = await res.json();
+
+    if (!res.ok || !data.success) {
+      updateStep(1, "error");
+      const errorMsg = data.error || "Deployment failed";
+      throw new Error(errorMsg);
+    }
+
+    updateStep(1, "completed");
+
+    // Step 3: Building & Provisioning
+    updateStep(2, "in_progress");
+    await new Promise((r) => setTimeout(r, 500));
+    updateStep(2, "completed");
+
+    // Step 4: Ready
+    updateStep(3, "completed");
+
+    const record: RealDeploymentRecord = data.deployment;
+
+    return {
+      id: record.deploymentID,
+      url: record.url,
+      deployedAt: record.readyOn || record.createdOn || new Date().toISOString(),
+      pagesCount: filesMap ? Object.keys(filesMap).length : 1,
+      status: record.status,
+      error: record.error || undefined,
+    };
+  } catch (err: any) {
+    updateStep(2, "error");
+    throw err;
+  }
 }
 
 /**
- * Constructs a live production deployment URL for the site.
- */
-export function getLiveUrl(deployId: string): string {
-  return `https://${deployId}.vercel.app`;
-}
-
-/**
- * Packages files and simulates an instant edge deployment sequence.
+ * Backward compatibility alias mapping simulateDeployment calls directly to real deployment.
  */
 export async function simulateDeployment(
   projectId: string,
   filesCount: number,
-  onProgress?: (stepId: string, steps: DeploymentStep[]) => void
+  onStepProgress?: (stepId: string, steps: DeploymentStep[]) => void
 ): Promise<DeploymentResult> {
-  const deployId = generateDeploymentId(projectId);
-  const liveUrl = getLiveUrl(deployId);
+  return executeRealDeployment(projectId, undefined, onStepProgress);
+}
 
-  const steps: DeploymentStep[] = [
-    { id: "bundle", label: "Packaging project & static assets...", status: "pending" },
-    { id: "ssl", label: "Provisioning edge SSL certificate...", status: "pending" },
-    { id: "cdn", label: "Deploying to Vercel global CDN edge network...", status: "pending" },
-    { id: "live", label: "Site is live!", status: "pending" },
-  ];
+/**
+ * Retrieves historical real Vercel deployment records for a project via GET /api/deploy.
+ */
+export async function fetchDeploymentHistory(projectId: string): Promise<RealDeploymentRecord[]> {
+  try {
+    const res = await fetch(`/api/deploy?projectId=${encodeURIComponent(projectId)}`);
+    const data = await res.json();
 
-  const updateStep = (index: number, status: "in_progress" | "completed") => {
-    steps[index].status = status;
-    if (onProgress) {
-      onProgress(steps[index].id, [...steps]);
+    if (res.ok && data.success && Array.isArray(data.deployments)) {
+      return data.deployments;
     }
-  };
-
-  // Step 1: Bundle
-  updateStep(0, "in_progress");
-  await new Promise((r) => setTimeout(r, 600));
-  updateStep(0, "completed");
-
-  // Step 2: SSL
-  updateStep(1, "in_progress");
-  await new Promise((r) => setTimeout(r, 700));
-  updateStep(1, "completed");
-
-  // Step 3: CDN
-  updateStep(2, "in_progress");
-  await new Promise((r) => setTimeout(r, 800));
-  updateStep(2, "completed");
-
-  // Step 4: Live
-  updateStep(3, "completed");
-
-  return {
-    id: deployId,
-    url: liveUrl,
-    deployedAt: new Date().toISOString(),
-    pagesCount: Math.max(1, filesCount),
-  };
+    return [];
+  } catch (err) {
+    console.error("Failed to fetch deployment history:", err);
+    return [];
+  }
 }

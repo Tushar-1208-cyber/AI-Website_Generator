@@ -119,6 +119,20 @@ export function parseMultiFiles(rawCode: string): ProjectFilesMap {
 }
 
 /**
+ * Serializes a ProjectFilesMap back into standard AI file header string format.
+ */
+export function serializeFiles(filesMap: ProjectFilesMap): string {
+  const filePaths = Object.keys(filesMap);
+  if (filePaths.length === 0) return "";
+  if (filePaths.length === 1 && (filePaths[0] === "index.html" || filePaths[0] === "index.htm")) {
+    return filesMap[filePaths[0]];
+  }
+  return filePaths
+    .map((path) => `--- FILE: ${path} ---\n${filesMap[path]}`)
+    .join("\n\n");
+}
+
+/**
  * Builds a nested FileTreeNode array from a flat map of path -> content.
  */
 export function buildFileTree(filesMap: ProjectFilesMap): FileTreeNode[] {

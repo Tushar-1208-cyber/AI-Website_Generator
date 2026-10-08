@@ -654,8 +654,8 @@ function WebsiteDesign({
           projectID={projectId}
           onClose={() => onCloseModal?.()}
           onOpenFile={(filePath) => {
-            onSelectFile?.(filePath);
-            onTabChange?.("code");
+            setSelectedFilePath(filePath);
+            setInternalActiveTab("code");
           }}
           onApplyFixes={(fixedMap) => {
             const serialized = serializeMultiFiles(fixedMap);

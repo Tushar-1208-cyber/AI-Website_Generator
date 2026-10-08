@@ -763,6 +763,7 @@ function WebsiteDesign({
       {/* Git Version Control & Branching Agent Modal */}
       {showGitModal && (
         <GitVersionModal
+          projectId={projectId}
           filesMap={filesMap}
           isOpen={showGitModal}
           onClose={() => onCloseModal?.()}

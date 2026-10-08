@@ -32,3 +32,15 @@ export const chatTable = pgTable("chats", {
   createdBy: varchar().references(() => usersTable.email),
   createdOn: timestamp().defaultNow(),
 })
+
+export const deploymentsTable = pgTable("deployments", {
+  id: integer().primaryKey().generatedAlwaysAsIdentity(),
+  deploymentID: varchar({ length: 255 }).notNull(),
+  projectID: varchar({ length: 255 }).notNull(),
+  userEmail: varchar({ length: 255 }).references(() => usersTable.email),
+  url: text().notNull(),
+  status: varchar({ length: 50 }).notNull().default("BUILDING"),
+  error: text(),
+  createdOn: timestamp().defaultNow(),
+  readyOn: timestamp(),
+})

@@ -9,6 +9,8 @@ import {
   Users,
   Terminal,
   Activity,
+  Mic,
+  MicOff,
 } from 'lucide-react';
 import {
   SWARM_AGENTS_INITIAL,
@@ -16,6 +18,7 @@ import {
   executeSwarmMission,
   SwarmMissionResult,
 } from '@/lib/multiAgentSwarmEngine';
+import { useVoiceInput } from '@/lib/useVoiceInput';
 
 interface MultiAgentSwarmModalProps {
   filesMap: Record<string, string>;
@@ -37,6 +40,10 @@ export default function MultiAgentSwarmModal({
   );
   const [isExecuting, setIsExecuting] = useState(false);
   const [lastResult, setLastResult] = useState<SwarmMissionResult | null>(null);
+
+  const { isListening, toggleVoiceInput } = useVoiceInput((transcript) => {
+    setMissionPrompt((prev) => (prev ? `${prev} ${transcript}` : transcript));
+  });
 
   if (!isOpen) return null;
 
@@ -142,9 +149,24 @@ export default function MultiAgentSwarmModal({
           <div className="md:col-span-2 p-6 overflow-y-auto space-y-6 bg-slate-900">
             {/* Mission Launch Box */}
             <div className="p-4 bg-slate-950 border border-slate-800 rounded-xl space-y-3">
-              <h4 className="text-xs font-semibold text-slate-300 flex items-center gap-2">
-                <Zap className="w-4 h-4 text-purple-400" /> Swarm Mission Goal Prompt
-              </h4>
+              <div className="flex items-center justify-between">
+                <h4 className="text-xs font-semibold text-slate-300 flex items-center gap-2">
+                  <Zap className="w-4 h-4 text-purple-400" /> Swarm Mission Goal Prompt
+                </h4>
+                <button
+                  type="button"
+                  onClick={toggleVoiceInput}
+                  title={isListening ? "Stop listening" : "Speak voice prompt 🎙️"}
+                  className={`text-[10px] px-2 py-0.5 rounded transition-all flex items-center gap-1 ${
+                    isListening
+                      ? "bg-rose-600 text-white animate-pulse"
+                      : "bg-slate-800 text-slate-300 hover:text-white"
+                  }`}
+                >
+                  {isListening ? <MicOff className="w-3 h-3" /> : <Mic className="w-3 h-3" />}
+                  <span>{isListening ? "Listening..." : "Voice Input"}</span>
+                </button>
+              </div>
               <textarea
                 value={missionPrompt}
                 onChange={(e) => setMissionPrompt(e.target.value)}

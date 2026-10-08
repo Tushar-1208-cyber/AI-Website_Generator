@@ -8,6 +8,7 @@ import {
   X,
   Zap,
 } from "lucide-react";
+import { useParams } from "next/navigation";
 import FileExplorer from "./FileExplorer";
 import MonacoCodeEditor from "./MonacoCodeEditor";
 import ApiConsole from "./ApiConsole";
@@ -194,6 +195,9 @@ function WebsiteDesign({
   const [selectedElementInfo, setSelectedElementInfo] = useState<SelectedElementInfo | null>(null);
   const [isFixingErrors, setIsFixingErrors] = useState<boolean>(false);
   const [lastFixSummary, setLastFixSummary] = useState<string | null>(null);
+
+  const params = useParams();
+  const projectId = typeof params?.projectId === "string" ? params.projectId : "project-demo";
 
   const activeTab = activeTabProp ?? internalActiveTab;
   const device = deviceProp ?? internalDevice;
@@ -636,8 +640,9 @@ function WebsiteDesign({
       {/* Deploy Modal */}
       {showDeployModal && (
         <DeployModal
-          projectId={activePreviewPage}
+          projectId={projectId}
           filesCount={Object.keys(filesMap).length}
+          filesMap={filesMap}
           onClose={handleCloseDeployModal}
         />
       )}

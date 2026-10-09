@@ -1,6 +1,12 @@
 /**
  * Automated Verification Test Suite for Stripe SaaS Billing & Entitlements
  */
+import "dotenv/config";
+
+if (!process.env.DATABASE_URL) {
+  process.env.DATABASE_URL = "postgres://placeholder_user:placeholder_pass@ep-placeholder.neon.tech/neondb?sslmode=require";
+}
+
 import { SAAS_PLANS, SaaSPlan } from "../lib/planEntitlementEngine";
 
 function assert(condition: boolean, message: string) {

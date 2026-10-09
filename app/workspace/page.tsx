@@ -15,6 +15,7 @@ import {
   Layers,
   Globe,
   Palette,
+  FolderKanban,
 } from "lucide-react";
 import Link from "next/link";
 
@@ -95,28 +96,37 @@ export default function Workspace() {
           </div>
         </div>
 
-        {/* View Mode Tabs */}
-        <div className="flex items-center bg-slate-900 p-1 rounded-xl border border-slate-800 text-xs font-bold">
-          <button
-            onClick={() => setActiveTab("generator")}
-            className={`px-3 py-1.5 rounded-lg transition-all flex items-center gap-1.5 ${
-              activeTab === "generator"
-                ? "bg-blue-600 text-white shadow-xs"
-                : "text-slate-400 hover:text-white"
-            }`}
+        <div className="flex items-center gap-3">
+          <Link
+            href="/dashboard"
+            className="px-3 py-1.5 bg-slate-900 border border-slate-800 text-slate-300 hover:text-white rounded-xl text-xs font-bold transition flex items-center gap-1.5"
           >
-            <Sparkles className="size-3.5" /> AI Generator
-          </button>
-          <button
-            onClick={() => setActiveTab("templates")}
-            className={`px-3 py-1.5 rounded-lg transition-all flex items-center gap-1.5 ${
-              activeTab === "templates"
-                ? "bg-blue-600 text-white shadow-xs"
-                : "text-slate-400 hover:text-white"
-            }`}
-          >
-            <Grid className="size-3.5" /> Templates
-          </button>
+            <FolderKanban className="size-3.5 text-blue-400" /> Dashboard
+          </Link>
+
+          {/* View Mode Tabs */}
+          <div className="flex items-center bg-slate-900 p-1 rounded-xl border border-slate-800 text-xs font-bold">
+            <button
+              onClick={() => setActiveTab("generator")}
+              className={`px-3 py-1.5 rounded-lg transition-all flex items-center gap-1.5 ${
+                activeTab === "generator"
+                  ? "bg-blue-600 text-white shadow-xs"
+                  : "text-slate-400 hover:text-white"
+              }`}
+            >
+              <Sparkles className="size-3.5" /> AI Generator
+            </button>
+            <button
+              onClick={() => setActiveTab("templates")}
+              className={`px-3 py-1.5 rounded-lg transition-all flex items-center gap-1.5 ${
+                activeTab === "templates"
+                  ? "bg-blue-600 text-white shadow-xs"
+                  : "text-slate-400 hover:text-white"
+              }`}
+            >
+              <Grid className="size-3.5" /> Templates
+            </button>
+          </div>
         </div>
       </header>
 

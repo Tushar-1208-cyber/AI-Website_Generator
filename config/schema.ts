@@ -126,3 +126,38 @@ export const testRunsTable = pgTable(
     index("test_runs_user_idx").on(table.userEmail),
   ]
 );
+
+export const subscriptionsTable = pgTable(
+  "subscriptions",
+  {
+    id: integer().primaryKey().generatedAlwaysAsIdentity(),
+    userEmail: varchar({ length: 255 }).notNull().unique().references(() => usersTable.email),
+    stripeCustomerId: varchar({ length: 255 }).notNull(),
+    stripeSubscriptionId: varchar({ length: 255 }),
+    stripePriceId: varchar({ length: 255 }),
+    plan: varchar({ length: 50 }).notNull().default("Free"),
+    status: varchar({ length: 50 }).notNull().default("active"),
+    currentPeriodStart: timestamp(),
+    currentPeriodEnd: timestamp(),
+    cancelAtPeriodEnd: integer().default(0),
+    updatedAt: timestamp().defaultNow(),
+    createdAt: timestamp().defaultNow(),
+  },
+  (table) => [
+    index("sub_user_idx").on(table.userEmail),
+    index("sub_customer_idx").on(table.stripeCustomerId),
+  ]
+);
+
+export const stripeWebhookLogsTable = pgTable(
+  "stripe_webhook_logs",
+  {
+    id: integer().primaryKey().generatedAlwaysAsIdentity(),
+    eventId: varchar({ length: 255 }).notNull().unique(),
+    eventType: varchar({ length: 255 }).notNull(),
+    processedAt: timestamp().defaultNow(),
+  },
+  (table) => [
+    index("webhook_event_idx").on(table.eventId),
+  ]
+);

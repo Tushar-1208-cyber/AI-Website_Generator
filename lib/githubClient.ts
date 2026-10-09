@@ -1,7 +1,7 @@
 /**
  * lib/githubClient.ts
  * Server-side GitHub REST API client & token encryption utility.
- * Handles AES-256 token encryption, OAuth token exchange, repository creation,
+ * Handles AES-256-GCM authenticated token encryption, OAuth token exchange, repository creation,
  * multi-file commits, and commit history retrieval via GitHub API v3.
  */
 
@@ -9,37 +9,58 @@ import crypto from "crypto";
 
 const ENCRYPTION_SECRET =
   process.env.GITHUB_TOKEN_ENCRYPTION_KEY ||
+  process.env.ENCRYPTION_KEY ||
   process.env.CLERK_SECRET_KEY ||
   "antigravity-github-token-secret-key-32b";
 
 /**
- * Encrypts a raw GitHub access token using AES-256-CBC.
+ * Encrypts a raw GitHub access token using authenticated AES-256-GCM.
  */
 export function encryptGitHubToken(rawToken: string): string {
   if (!rawToken) return "";
   const key = crypto.createHash("sha256").update(ENCRYPTION_SECRET).digest();
-  const iv = crypto.randomBytes(16);
-  const cipher = crypto.createCipheriv("aes-256-cbc", key, iv);
+  const iv = crypto.randomBytes(12); // 96-bit IV recommended for GCM
+  const cipher = crypto.createCipheriv("aes-256-gcm", key, iv);
   let encrypted = cipher.update(rawToken, "utf8", "hex");
   encrypted += cipher.final("hex");
-  return `${iv.toString("hex")}:${encrypted}`;
+  const authTag = cipher.getAuthTag().toString("hex");
+  return `gcm:${iv.toString("hex")}:${authTag}:${encrypted}`;
 }
 
 /**
  * Decrypts an encrypted GitHub access token string.
+ * Supports AES-256-GCM authenticated decryption and legacy AES-256-CBC fallback.
  */
 export function decryptGitHubToken(encryptedStr: string): string {
-  if (!encryptedStr || !encryptedStr.includes(":")) return encryptedStr || "";
+  if (!encryptedStr) return "";
+  if (!encryptedStr.includes(":")) return encryptedStr;
+
   try {
-    const [ivHex, encryptedText] = encryptedStr.split(":");
     const key = crypto.createHash("sha256").update(ENCRYPTION_SECRET).digest();
-    const iv = Buffer.from(ivHex, "hex");
-    const decipher = crypto.createDecipheriv("aes-256-cbc", key, iv);
-    let decrypted = decipher.update(encryptedText, "hex", "utf8");
-    decrypted += decipher.final("utf8");
-    return decrypted;
-  } catch (err) {
-    console.error("[GitHub Token Decryption Error]", err);
+
+    if (encryptedStr.startsWith("gcm:")) {
+      // AES-256-GCM authenticated format: gcm:ivHex:tagHex:encryptedText
+      const parts = encryptedStr.split(":");
+      if (parts.length !== 4) return "";
+      const [, ivHex, tagHex, encryptedText] = parts;
+      const iv = Buffer.from(ivHex, "hex");
+      const authTag = Buffer.from(tagHex, "hex");
+      const decipher = crypto.createDecipheriv("aes-256-gcm", key, iv);
+      decipher.setAuthTag(authTag);
+      let decrypted = decipher.update(encryptedText, "hex", "utf8");
+      decrypted += decipher.final("utf8");
+      return decrypted;
+    } else {
+      // Legacy AES-256-CBC format fallback: ivHex:encryptedText
+      const [ivHex, encryptedText] = encryptedStr.split(":");
+      const iv = Buffer.from(ivHex, "hex");
+      const decipher = crypto.createDecipheriv("aes-256-cbc", key, iv);
+      let decrypted = decipher.update(encryptedText, "hex", "utf8");
+      decrypted += decipher.final("utf8");
+      return decrypted;
+    }
+  } catch {
+    console.error("[GitHub Token Decryption Error] Failed to decrypt stored GitHub access token.");
     return "";
   }
 }

@@ -3,7 +3,7 @@ import { db } from "@/config/db";
 import { subscriptionsTable } from "@/config/schema";
 import { eq } from "drizzle-orm";
 
-const STRIPE_SECRET = process.env.STRIPE_SECRET_KEY || "";
+const STRIPE_SECRET = process.env.STRIPE_SECRET_KEY || "sk_test_placeholder";
 
 export const stripe = new Stripe(STRIPE_SECRET, {
   apiVersion: "2025-02-24.acacia" as Stripe.LatestApiVersion,

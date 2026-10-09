@@ -25,6 +25,13 @@ export async function POST(req: NextRequest) {
       }
       event = stripe.webhooks.constructEvent(body, signature, webhookSecret);
     } else {
+      if (process.env.NODE_ENV === "production") {
+        console.error("STRIPE_WEBHOOK_SECRET is not configured in production mode.");
+        return NextResponse.json(
+          { error: "Stripe Webhook Secret is required in production." },
+          { status: 500 }
+        );
+      }
       console.warn("STRIPE_WEBHOOK_SECRET not configured. Parsing payload for dev mode.");
       event = JSON.parse(body) as Stripe.Event;
     }
@@ -37,7 +44,7 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  // Idempotency Check
+  // Idempotency Check: check if event was ALREADY successfully processed
   try {
     const existingLog = await db
       .select()
@@ -48,15 +55,8 @@ export async function POST(req: NextRequest) {
     if (existingLog.length > 0) {
       return NextResponse.json({ received: true, idempotent: true });
     }
-
-    await db.insert(stripeWebhookLogsTable).values({
-      eventId: event.id,
-      eventType: event.type,
-      processedAt: new Date(),
-    });
   } catch (err: unknown) {
-    console.error("Error writing to webhook logs:", err);
-    // Proceed even if log write fails to ensure webhook handling
+    console.error("Error checking webhook logs table:", err);
   }
 
   try {
@@ -212,6 +212,17 @@ export async function POST(req: NextRequest) {
 
       default:
         console.log(`Unhandled event type ${event.type}`);
+    }
+
+    // Log idempotency AFTER successful event handling so failed events remain retryable
+    try {
+      await db.insert(stripeWebhookLogsTable).values({
+        eventId: event.id,
+        eventType: event.type,
+        processedAt: new Date(),
+      });
+    } catch (err: unknown) {
+      console.error("Error logging completed webhook event:", err);
     }
 
     return NextResponse.json({ received: true });

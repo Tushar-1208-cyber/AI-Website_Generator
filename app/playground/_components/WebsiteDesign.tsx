@@ -677,6 +677,12 @@ function WebsiteDesign({
             handleCommit(serialized);
             onCloseModal?.();
           }}
+          onApplyTemplate={(newFilesMap) => {
+            const serialized = serializeMultiFiles(newFilesMap);
+            onCodeChange?.(serialized);
+            handleCommit(serialized);
+            onCloseModal?.();
+          }}
         />
       )}
 

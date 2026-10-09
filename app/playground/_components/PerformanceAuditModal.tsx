@@ -373,7 +373,7 @@ export default function PerformanceAuditModal({
                 {perfScores.metrics?.unmeasuredMetrics && (
                   <div className="p-3 bg-slate-950/60 border border-slate-800 rounded-xl text-[11px] text-slate-400 flex items-center gap-2">
                     <HelpCircle className="w-4 h-4 text-slate-500 shrink-0" />
-                    <span>Live Core Web Vitals (LCP, CLS, FID) are labeled "Not measured" in offline audit mode until live user session preview.</span>
+                    <span>Live Core Web Vitals (LCP, CLS, FID) are labeled &quot;Not measured&quot; in offline audit mode until live user session preview.</span>
                   </div>
                 )}
 

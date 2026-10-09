@@ -47,7 +47,7 @@ async function runStripeSecurityAuditTests() {
   // Test 2: Server-side Checkout plan validation (Pro / Team only)
   try {
     const validateCheckoutPlan = (planInput: any): { allowed: boolean; status?: number; error?: string } => {
-      const rawPlan = planInput || "Pro";
+      const rawPlan = planInput;
       if (rawPlan !== "Pro" && rawPlan !== "Team") {
         return { allowed: false, status: 400, error: "Invalid plan specified. Server only accepts 'Pro' or 'Team'." };
       }

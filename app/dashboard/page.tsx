@@ -15,7 +15,8 @@ import {
   Layout,
   RefreshCw,
   AlertCircle,
-  Sparkles,
+  CreditCard,
+  Crown,
 } from "lucide-react";
 
 interface ProjectItem {
@@ -38,6 +39,11 @@ interface SubscriptionDetails {
     canSyncGitHub: boolean;
   };
   projectCount: number;
+  stripeCustomerId?: string;
+  stripeSubscriptionId?: string;
+  subscriptionStatus?: string;
+  currentPeriodEnd?: string | null;
+  cancelAtPeriodEnd?: boolean;
 }
 
 export default function DashboardPage() {
@@ -48,6 +54,7 @@ export default function DashboardPage() {
   const [editingProjectId, setEditingProjectId] = useState<string | null>(null);
   const [editingName, setEditingName] = useState<string>("");
   const [actionLoadingId, setActionLoadingId] = useState<string | null>(null);
+  const [isBillingLoading, setIsBillingLoading] = useState<boolean>(false);
 
   const fetchDashboardData = async () => {
     setIsLoading(true);
@@ -78,6 +85,48 @@ export default function DashboardPage() {
   useEffect(() => {
     fetchDashboardData();
   }, []);
+
+  const handleManageBilling = async () => {
+    setIsBillingLoading(true);
+    try {
+      const res = await fetch("/api/stripe/portal", {
+        method: "POST",
+      });
+      const data = await res.json();
+      if (data.url) {
+        window.location.href = data.url;
+      } else {
+        alert(data.error || "Failed to open Stripe Billing Portal");
+      }
+    } catch (err) {
+      console.error("Portal error:", err);
+      alert("Failed to open Stripe Billing Portal");
+    } finally {
+      setIsBillingLoading(false);
+    }
+  };
+
+  const handleUpgradePlan = async (targetPlan: "Pro" | "Team") => {
+    setIsBillingLoading(true);
+    try {
+      const res = await fetch("/api/stripe/checkout", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ plan: targetPlan }),
+      });
+      const data = await res.json();
+      if (data.url) {
+        window.location.href = data.url;
+      } else {
+        alert(data.error || `Failed to start checkout for ${targetPlan} plan`);
+      }
+    } catch (err) {
+      console.error("Checkout error:", err);
+      alert("Failed to initiate Stripe Checkout");
+    } finally {
+      setIsBillingLoading(false);
+    }
+  };
 
   const handleRename = async (projectId: string) => {
     if (!editingName.trim()) return;
@@ -158,6 +207,19 @@ export default function DashboardPage() {
         </div>
 
         <div className="flex items-center gap-3">
+          <button
+            onClick={handleManageBilling}
+            disabled={isBillingLoading}
+            className="px-3.5 py-2 bg-slate-900 hover:bg-slate-800 text-slate-200 border border-slate-800 text-xs font-semibold rounded-xl transition flex items-center gap-1.5"
+          >
+            {isBillingLoading ? (
+              <Loader2 className="size-4 animate-spin text-blue-400" />
+            ) : (
+              <CreditCard className="size-4 text-blue-400" />
+            )}
+            <span>Manage Billing</span>
+          </button>
+
           <Link
             href="/workspace"
             className="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold rounded-xl transition shadow-md shadow-blue-500/20 flex items-center gap-1.5"
@@ -182,10 +244,36 @@ export default function DashboardPage() {
             </div>
 
             <div className="p-5 bg-slate-900 border border-slate-800 rounded-2xl flex flex-col justify-between">
-              <span className="text-xs font-semibold text-slate-400 uppercase">Current SaaS Plan</span>
-              <div className="mt-2 flex items-baseline gap-2">
-                <span className="text-2xl font-extrabold text-blue-400">{subscription.plan}</span>
-                <span className="text-xs text-slate-400">Plan</span>
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-semibold text-slate-400 uppercase">Current SaaS Plan</span>
+                {subscription.plan !== "Free" ? (
+                  <span className="text-[10px] font-bold uppercase tracking-wider bg-emerald-500/20 text-emerald-400 px-2 py-0.5 rounded border border-emerald-500/30">
+                    {subscription.subscriptionStatus || "Active"}
+                  </span>
+                ) : (
+                  <button
+                    onClick={() => handleUpgradePlan("Pro")}
+                    disabled={isBillingLoading}
+                    className="text-[10px] font-bold text-blue-400 hover:text-blue-300 flex items-center gap-1"
+                  >
+                    <Crown className="size-3" /> Upgrade
+                  </button>
+                )}
+              </div>
+              <div className="mt-2 flex items-baseline justify-between">
+                <div>
+                  <span className="text-2xl font-extrabold text-blue-400">{subscription.plan}</span>
+                  <span className="text-xs text-slate-400 ml-1">Plan</span>
+                </div>
+                {subscription.plan === "Free" && (
+                  <button
+                    onClick={() => handleUpgradePlan("Pro")}
+                    disabled={isBillingLoading}
+                    className="px-2 py-1 bg-blue-600 hover:bg-blue-500 text-white text-[11px] font-bold rounded-lg transition"
+                  >
+                    Upgrade to Pro
+                  </button>
+                )}
               </div>
             </div>
 

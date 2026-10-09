@@ -26,7 +26,7 @@ export async function POST(req: NextRequest) {
     }
 
     const body = await req.json().catch(() => ({}));
-    const rawPlan = body.plan || "Pro";
+    const rawPlan = body.plan;
     if (rawPlan !== "Pro" && rawPlan !== "Team") {
       return NextResponse.json(
         { error: "Invalid plan specified. Server only accepts 'Pro' or 'Team'." },

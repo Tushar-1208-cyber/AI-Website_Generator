@@ -26,7 +26,14 @@ export async function POST(req: NextRequest) {
     }
 
     const body = await req.json().catch(() => ({}));
-    const plan = (body.plan || "Pro") as "Pro" | "Team";
+    const rawPlan = body.plan || "Pro";
+    if (rawPlan !== "Pro" && rawPlan !== "Team") {
+      return NextResponse.json(
+        { error: "Invalid plan specified. Server only accepts 'Pro' or 'Team'." },
+        { status: 400 }
+      );
+    }
+    const plan: "Pro" | "Team" = rawPlan;
 
     let priceId = process.env.STRIPE_PRO_PRICE_ID || "";
     if (plan === "Team") {

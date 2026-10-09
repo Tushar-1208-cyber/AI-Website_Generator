@@ -16,11 +16,17 @@ export async function POST(req: NextRequest) {
   let event: Stripe.Event;
 
   try {
-    if (!signature || !webhookSecret) {
-      console.warn("Stripe webhook missing signature or secret. Attempting parsing without verification.");
-      event = JSON.parse(body) as Stripe.Event;
-    } else {
+    if (webhookSecret) {
+      if (!signature) {
+        return NextResponse.json(
+          { error: "Missing stripe-signature header." },
+          { status: 400 }
+        );
+      }
       event = stripe.webhooks.constructEvent(body, signature, webhookSecret);
+    } else {
+      console.warn("STRIPE_WEBHOOK_SECRET not configured. Parsing payload for dev mode.");
+      event = JSON.parse(body) as Stripe.Event;
     }
   } catch (err: unknown) {
     const errMsg = err instanceof Error ? err.message : String(err);

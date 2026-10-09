@@ -75,7 +75,7 @@ export async function getUserSubscriptionDetails(userEmail: string): Promise<Use
 
   const sub = subRecords[0];
 
-  let rawPlan: SaaSPlan = (user?.plan as SaaSPlan) || (sub?.plan as SaaSPlan) || "Free";
+  const rawPlan: SaaSPlan = (user?.plan as SaaSPlan) || (sub?.plan as SaaSPlan) || "Free";
   const status = sub?.status || "active";
   const now = new Date();
 

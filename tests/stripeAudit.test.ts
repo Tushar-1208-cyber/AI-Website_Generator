@@ -7,8 +7,6 @@ if (!process.env.DATABASE_URL) {
   process.env.DATABASE_URL = "postgres://placeholder_user:placeholder_pass@ep-placeholder.neon.tech/neondb?sslmode=require";
 }
 
-import { SAAS_PLANS, SaaSPlan } from "../lib/planEntitlementEngine";
-
 function assert(condition: boolean, message: string) {
   if (!condition) {
     throw new Error(`TEST FAILED: ${message}`);
@@ -16,6 +14,9 @@ function assert(condition: boolean, message: string) {
 }
 
 async function runStripeAuditTests() {
+  const { SAAS_PLANS } = await import("../lib/planEntitlementEngine");
+  type SaaSPlan = "Free" | "Pro" | "Team";
+
   console.log("==================================================");
   console.log("STARTING STRIPE POST-IMPLEMENTATION AUDIT TESTS");
   console.log("==================================================");

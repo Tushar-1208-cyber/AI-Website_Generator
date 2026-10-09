@@ -1,5 +1,5 @@
 import { db } from "@/config/db";
-import { usersTable, projectsTable } from "@/config/schema";
+import { usersTable, projectsTable, subscriptionsTable } from "@/config/schema";
 import { eq, count } from "drizzle-orm";
 
 export type SaaSPlan = "Free" | "Pro" | "Team";
@@ -47,10 +47,15 @@ export interface UserSubscriptionDetails {
   credits: number;
   entitlements: PlanEntitlements;
   projectCount: number;
+  stripeCustomerId?: string;
+  stripeSubscriptionId?: string;
+  subscriptionStatus?: string;
+  currentPeriodEnd?: Date | null;
+  cancelAtPeriodEnd?: boolean;
 }
 
 /**
- * Fetches user subscription details, plan limits, remaining credits & active project count
+ * Fetches user subscription details, live Stripe status, plan limits, remaining credits & active project count
  */
 export async function getUserSubscriptionDetails(userEmail: string): Promise<UserSubscriptionDetails> {
   const userRecords = await db
@@ -60,9 +65,31 @@ export async function getUserSubscriptionDetails(userEmail: string): Promise<Use
     .limit(1);
 
   const user = userRecords[0];
-  const plan: SaaSPlan = (user?.plan as SaaSPlan) || "Free";
-  const credits = user?.credits ?? 15;
-  const entitlements = SAAS_PLANS[plan] || SAAS_PLANS.Free;
+
+  // Fetch live subscription record if present
+  const subRecords = await db
+    .select()
+    .from(subscriptionsTable)
+    .where(eq(subscriptionsTable.userEmail, userEmail))
+    .limit(1);
+
+  const sub = subRecords[0];
+
+  let rawPlan: SaaSPlan = (user?.plan as SaaSPlan) || (sub?.plan as SaaSPlan) || "Free";
+  const status = sub?.status || "active";
+  const now = new Date();
+
+  // If subscription is canceled and period ended, treat as Free
+  let effectivePlan: SaaSPlan = rawPlan;
+  if (status === "canceled" && sub?.currentPeriodEnd && sub.currentPeriodEnd < now) {
+    effectivePlan = "Free";
+  } else if (status === "unpaid" || status === "past_due") {
+    // If unpaid, restrict to Free entitlements while giving user chance to fix payment in portal
+    effectivePlan = "Free";
+  }
+
+  const credits = user?.credits ?? (effectivePlan === "Team" ? 2000 : effectivePlan === "Pro" ? 500 : 15);
+  const entitlements = SAAS_PLANS[effectivePlan] || SAAS_PLANS.Free;
 
   // Count projects owned by user
   const projCountResult = await db
@@ -75,10 +102,15 @@ export async function getUserSubscriptionDetails(userEmail: string): Promise<Use
   return {
     email: userEmail,
     name: user?.name || userEmail.split("@")[0],
-    plan,
+    plan: effectivePlan,
     credits,
     entitlements,
     projectCount,
+    stripeCustomerId: sub?.stripeCustomerId,
+    stripeSubscriptionId: sub?.stripeSubscriptionId || undefined,
+    subscriptionStatus: status,
+    currentPeriodEnd: sub?.currentPeriodEnd,
+    cancelAtPeriodEnd: Boolean(sub?.cancelAtPeriodEnd),
   };
 }
 

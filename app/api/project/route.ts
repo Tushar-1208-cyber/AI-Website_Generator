@@ -1,19 +1,45 @@
 import { NextRequest, NextResponse } from "next/server";
-import { currentUser } from "@clerk/nextjs/server";
 import { db } from "@/config/db";
 import { usersTable, projectsTable, frameTable, chatTable } from "@/config/schema";
 import { eq, desc } from "drizzle-orm";
 import { ChatMessageItem } from "@/types/types";
 import { checkCanCreateProject } from "@/lib/planEntitlementEngine";
+import {
+  getAuthenticatedUser,
+  safeErrorResponse,
+  ProjectIdSchema,
+  FrameIdSchema,
+} from "@/lib/authSecurity";
+import { z } from "zod";
+
+const DuplicateProjectSchema = z.object({
+  action: z.literal("duplicate"),
+  sourceProjectId: ProjectIdSchema,
+});
+
+const CreateProjectSchema = z.object({
+  action: z.undefined().optional(),
+  projectId: ProjectIdSchema,
+  frameId: FrameIdSchema,
+  name: z.string().trim().max(100).optional().nullable(),
+  message: z.any().optional(),
+});
+
+const PostProjectSchema = z.union([DuplicateProjectSchema, CreateProjectSchema]);
+
+const PatchProjectSchema = z.object({
+  projectId: ProjectIdSchema,
+  name: z.string().trim().min(1, "Project name cannot be empty").max(100, "Project name cannot exceed 100 characters"),
+});
 
 // GET /api/project — fetch all projects for current logged-in user with details
 export async function GET() {
   try {
-    const user = await currentUser();
-    if (!user || !user.primaryEmailAddress?.emailAddress) {
-      return NextResponse.json({ error: "User not authenticated" }, { status: 401 });
+    const auth = await getAuthenticatedUser();
+    if (!auth) {
+      return safeErrorResponse("Unauthorized. Please log in.", 401);
     }
-    const userEmail = user.primaryEmailAddress.emailAddress;
+    const { userEmail } = auth;
 
     // Get all projects for this user, newest first
     const projects = await db
@@ -67,34 +93,42 @@ export async function GET() {
 
     return NextResponse.json({ projects: projectsWithDetails });
   } catch (error: unknown) {
-    console.error("Error fetching projects:", error);
-    const errMessage = error instanceof Error ? error.message : "unknown";
-    return NextResponse.json(
-      { error: "Failed to fetch projects", details: errMessage },
-      { status: 500 }
-    );
+    return safeErrorResponse("Failed to fetch projects.", 500, error);
   }
 }
 
 // POST /api/project — create or duplicate project
 export async function POST(request: NextRequest) {
   try {
-    const user = await currentUser();
-    if (!user || !user.primaryEmailAddress?.emailAddress) {
-      return NextResponse.json({ error: "User not authenticated" }, { status: 401 });
+    const auth = await getAuthenticatedUser();
+    if (!auth) {
+      return safeErrorResponse("Unauthorized. Please log in.", 401);
+    }
+    const { user, userEmail } = auth;
+
+    let rawBody: unknown;
+    try {
+      rawBody = await request.json();
+    } catch {
+      return safeErrorResponse("Invalid JSON payload.", 400);
     }
 
-    const userEmail = user.primaryEmailAddress.emailAddress;
-    const body = await request.json();
+    const parseResult = PostProjectSchema.safeParse(rawBody);
+    if (!parseResult.success) {
+      const firstError = parseResult.error.issues[0]?.message || "Invalid project payload.";
+      return safeErrorResponse(firstError, 400);
+    }
+
+    const body = parseResult.data;
 
     // Check project creation entitlement
     const entitlementCheck = await checkCanCreateProject(userEmail);
     if (!entitlementCheck.allowed) {
-      return NextResponse.json({ error: entitlementCheck.reason }, { status: 403 });
+      return safeErrorResponse(entitlementCheck.reason || "Project limit reached.", 403);
     }
 
     // Handle project duplication
-    if (body.action === "duplicate" && body.sourceProjectId) {
+    if ("action" in body && body.action === "duplicate") {
       const sourceProjectId = body.sourceProjectId;
       const sourceProject = await db
         .select()
@@ -103,7 +137,7 @@ export async function POST(request: NextRequest) {
         .limit(1);
 
       if (sourceProject.length === 0 || sourceProject[0].createdBy !== userEmail) {
-        return NextResponse.json({ error: "Source project not found or unauthorized" }, { status: 403 });
+        return safeErrorResponse("Source project not found or unauthorized.", 403);
       }
 
       const newProjectId = `proj-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`;
@@ -134,10 +168,11 @@ export async function POST(request: NextRequest) {
     }
 
     // Standard Project Creation
-    const { projectId, frameId, message, name } = body;
-    const userName = user.firstName && user.lastName 
-      ? `${user.firstName} ${user.lastName}` 
-      : user.username || userEmail.split("@")[0];
+    const { projectId, frameId, message, name } = body as z.infer<typeof CreateProjectSchema>;
+    const userName =
+      user.firstName && user.lastName
+        ? `${user.firstName} ${user.lastName}`
+        : user.username || userEmail.split("@")[0];
     const frameIdStr = String(frameId);
 
     // Ensure user exists in usersTable
@@ -184,28 +219,33 @@ export async function POST(request: NextRequest) {
       frameId: frameIdStr,
     });
   } catch (error: unknown) {
-    console.error("Error creating project:", error);
-    const errMessage = error instanceof Error ? error.message : "unknown";
-    return NextResponse.json(
-      { error: "Failed to create project", details: errMessage },
-      { status: 500 }
-    );
+    return safeErrorResponse("Failed to create project.", 500, error);
   }
 }
 
 // PATCH /api/project — rename project
 export async function PATCH(request: NextRequest) {
   try {
-    const user = await currentUser();
-    if (!user || !user.primaryEmailAddress?.emailAddress) {
-      return NextResponse.json({ error: "User not authenticated" }, { status: 401 });
+    const auth = await getAuthenticatedUser();
+    if (!auth) {
+      return safeErrorResponse("Unauthorized. Please log in.", 401);
     }
-    const userEmail = user.primaryEmailAddress.emailAddress;
+    const { userEmail } = auth;
 
-    const { projectId, name } = await request.json();
-    if (!projectId || !name) {
-      return NextResponse.json({ error: "projectId and name parameters are required" }, { status: 400 });
+    let rawBody: unknown;
+    try {
+      rawBody = await request.json();
+    } catch {
+      return safeErrorResponse("Invalid JSON payload.", 400);
     }
+
+    const parseResult = PatchProjectSchema.safeParse(rawBody);
+    if (!parseResult.success) {
+      const firstError = parseResult.error.issues[0]?.message || "Invalid rename payload.";
+      return safeErrorResponse(firstError, 400);
+    }
+
+    const { projectId, name } = parseResult.data;
 
     // Verify ownership
     const project = await db
@@ -215,7 +255,7 @@ export async function PATCH(request: NextRequest) {
       .limit(1);
 
     if (project.length === 0 || project[0].createdBy !== userEmail) {
-      return NextResponse.json({ error: "Project not found or unauthorized" }, { status: 403 });
+      return safeErrorResponse("Project not found or unauthorized.", 403);
     }
 
     await db
@@ -225,8 +265,7 @@ export async function PATCH(request: NextRequest) {
 
     return NextResponse.json({ success: true, name });
   } catch (error: unknown) {
-    const errMessage = error instanceof Error ? error.message : "unknown";
-    return NextResponse.json({ error: errMessage }, { status: 500 });
+    return safeErrorResponse("Failed to update project.", 500, error);
   }
 }
 
@@ -234,17 +273,19 @@ export async function PATCH(request: NextRequest) {
 export async function DELETE(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
-    const projectId = searchParams.get("projectId");
+    const rawProjectId = searchParams.get("projectId");
 
-    if (!projectId) {
-      return NextResponse.json({ error: "projectId is required" }, { status: 400 });
+    const parseResult = ProjectIdSchema.safeParse(rawProjectId);
+    if (!parseResult.success) {
+      return safeErrorResponse("Valid projectId is required.", 400);
     }
+    const projectId = parseResult.data;
 
-    const user = await currentUser();
-    if (!user || !user.primaryEmailAddress?.emailAddress) {
-      return NextResponse.json({ error: "User not authenticated" }, { status: 401 });
+    const auth = await getAuthenticatedUser();
+    if (!auth) {
+      return safeErrorResponse("Unauthorized. Please log in.", 401);
     }
-    const userEmail = user.primaryEmailAddress.emailAddress;
+    const { userEmail } = auth;
 
     // Verify ownership
     const project = await db
@@ -254,7 +295,7 @@ export async function DELETE(request: NextRequest) {
       .limit(1);
 
     if (project.length === 0 || project[0].createdBy !== userEmail) {
-      return NextResponse.json({ error: "Project not found or unauthorized" }, { status: 403 });
+      return safeErrorResponse("Project not found or unauthorized.", 403);
     }
 
     const frames = await db
@@ -273,11 +314,6 @@ export async function DELETE(request: NextRequest) {
 
     return NextResponse.json({ success: true });
   } catch (error: unknown) {
-    console.error("Error deleting project:", error);
-    const errMessage = error instanceof Error ? error.message : "unknown";
-    return NextResponse.json(
-      { error: "Failed to delete project", details: errMessage },
-      { status: 500 }
-    );
+    return safeErrorResponse("Failed to delete project.", 500, error);
   }
 }

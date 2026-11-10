@@ -1,11 +1,9 @@
 // app/api/github/push/route.ts
 import { NextRequest, NextResponse } from "next/server";
-import { currentUser } from "@clerk/nextjs/server";
 import { db } from "@/config/db";
 import {
   githubAccountsTable,
   projectGitHubRepositoriesTable,
-  projectsTable,
   frameTable,
 } from "@/config/schema";
 import { eq, and } from "drizzle-orm";
@@ -14,34 +12,49 @@ import {
   pushFilesToGitHubRepo,
 } from "@/lib/githubClient";
 import { parseMultiFiles } from "@/lib/fileTree";
+import {
+  getAuthenticatedUser,
+  verifyProjectOwnership,
+  safeErrorResponse,
+  ProjectIdSchema,
+  FilesMapSchema,
+} from "@/lib/authSecurity";
+import { z } from "zod";
+
+const PushSchema = z.object({
+  projectId: ProjectIdSchema,
+  commitMessage: z.string().trim().max(500).optional(),
+  filesMap: FilesMapSchema.optional().nullable(),
+});
 
 export async function POST(req: NextRequest) {
   try {
-    const user = await currentUser();
-    if (!user || !user.primaryEmailAddress?.emailAddress) {
-      return NextResponse.json({ error: "User not authenticated" }, { status: 401 });
+    const auth = await getAuthenticatedUser();
+    if (!auth) {
+      return safeErrorResponse("User not authenticated", 401);
     }
 
-    const userEmail = user.primaryEmailAddress.emailAddress;
-    const body = await req.json();
-    const { projectId, commitMessage, filesMap: clientFilesMap } = body;
+    const { userEmail } = auth;
 
-    if (!projectId || typeof projectId !== "string") {
-      return NextResponse.json({ error: "Missing required 'projectId' in body" }, { status: 400 });
+    let rawBody: unknown;
+    try {
+      rawBody = await req.json();
+    } catch {
+      return safeErrorResponse("Invalid JSON payload", 400);
     }
+
+    const parseResult = PushSchema.safeParse(rawBody);
+    if (!parseResult.success) {
+      const firstError = parseResult.error.issues[0]?.message || "Invalid push payload";
+      return safeErrorResponse(firstError, 400);
+    }
+
+    const { projectId, commitMessage, filesMap: clientFilesMap } = parseResult.data;
 
     // 1. Verify project ownership
-    const existingProjects = await db
-      .select()
-      .from(projectsTable)
-      .where(and(eq(projectsTable.projectID, projectId), eq(projectsTable.createdBy, userEmail)))
-      .limit(1);
-
-    if (existingProjects.length === 0) {
-      return NextResponse.json(
-        { error: "Project not found or you do not have permission to push to GitHub." },
-        { status: 403 }
-      );
+    const isOwner = await verifyProjectOwnership(projectId, userEmail);
+    if (!isOwner) {
+      return safeErrorResponse("Project not found or you do not have permission to push to GitHub.", 403);
     }
 
     // 2. Fetch linked GitHub repository
@@ -57,9 +70,9 @@ export async function POST(req: NextRequest) {
       .limit(1);
 
     if (repoRecords.length === 0) {
-      return NextResponse.json(
-        { error: "No GitHub repository linked to this project. Please create or connect a repository first." },
-        { status: 400 }
+      return safeErrorResponse(
+        "No GitHub repository linked to this project. Please create or connect a repository first.",
+        400
       );
     }
 
@@ -73,12 +86,12 @@ export async function POST(req: NextRequest) {
       .limit(1);
 
     if (githubAccountRecords.length === 0) {
-      return NextResponse.json({ error: "GitHub account not connected." }, { status: 400 });
+      return safeErrorResponse("GitHub account not connected.", 400);
     }
 
     const token = decryptGitHubToken(githubAccountRecords[0].encryptedAccessToken);
     if (!token) {
-      return NextResponse.json({ error: "Invalid GitHub access token." }, { status: 400 });
+      return safeErrorResponse("Invalid GitHub access token.", 400);
     }
 
     // 4. Resolve files map to push
@@ -98,7 +111,7 @@ export async function POST(req: NextRequest) {
     }
 
     if (Object.keys(targetFilesMap).length === 0) {
-      return NextResponse.json({ error: "No files found to push to GitHub." }, { status: 400 });
+      return safeErrorResponse("No files found to push to GitHub.", 400);
     }
 
     // 5. Execute real multi-file push to GitHub
@@ -123,8 +136,6 @@ export async function POST(req: NextRequest) {
       },
     });
   } catch (error: unknown) {
-    console.error("GitHub Push API error:", error);
-    const errMessage = error instanceof Error ? error.message : String(error);
-    return NextResponse.json({ error: errMessage }, { status: 500 });
+    return safeErrorResponse("Failed to push files to GitHub repository", 500, error);
   }
 }

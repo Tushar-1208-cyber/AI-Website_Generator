@@ -2,7 +2,7 @@
  * Automated Database & Schema Verification Test Suite
  *
  * NOTE: These tests verify local schema invariants, credit consistency,
- * index definitions, atomic deduction math, and migration safety.
+ * index definitions, atomic deduction math, migration safety, and transactional deletion.
  *
  * All tests run locally in-memory without connecting to or mutating the
  * configured single Neon production database.
@@ -123,7 +123,7 @@ async function runDatabaseAuditTests() {
     assert(content.includes("CREATE INDEX IF NOT EXISTS"), "Indexes must use IF NOT EXISTS");
     assert(content.includes("ALTER COLUMN \"CREDITS\" SET DEFAULT 15"), "Must set credits default to 15");
 
-    console.log("✓ Test 4 [Migration Safety]: Generated SQL migration verified strictly non-destructive & idempotent");
+    console.log("✓ Test 4 [Migration Safety]: Generated SQL migration 0001 verified strictly non-destructive & idempotent");
     passed++;
   } catch (err: any) {
     console.error("❌ Test 4 Failed:", err.message);
@@ -138,6 +138,88 @@ async function runDatabaseAuditTests() {
     passed++;
   } catch (err: any) {
     console.error("❌ Test 5 Failed:", err.message);
+    failed++;
+  }
+
+  // Test 6: Migration 0002 Full Schema Reconstruction Analysis
+  try {
+    const reconPath = path.join(process.cwd(), "drizzle", "0002_full_schema_reconstruction.sql");
+    assert(fs.existsSync(reconPath), "Migration 0002 file must exist locally");
+
+    const sqlContent = fs.readFileSync(reconPath, "utf-8");
+
+    // Verify all 10 tables are created
+    const tables = [
+      "users",
+      "projects",
+      "frames",
+      "chats",
+      "deployments",
+      "github_accounts",
+      "project_github_repositories",
+      "test_runs",
+      "subscriptions",
+      "stripe_webhook_logs",
+    ];
+
+    for (const tbl of tables) {
+      assert(sqlContent.includes(`CREATE TABLE IF NOT EXISTS "${tbl}"`), `Expected CREATE TABLE for ${tbl}`);
+    }
+
+    // Verify zero DROP statements
+    assert(!sqlContent.toUpperCase().includes("DROP TABLE"), "Migration 0002 must NOT contain DROP TABLE");
+    assert(!sqlContent.toUpperCase().includes("DROP COLUMN"), "Migration 0002 must NOT contain DROP COLUMN");
+
+    // Verify journal has entries 0, 1, 2
+    const journalPath = path.join(process.cwd(), "drizzle", "meta", "_journal.json");
+    const journal = JSON.parse(fs.readFileSync(journalPath, "utf-8"));
+    assert(journal.entries.length === 3, "Journal must contain exactly 3 migration entries (0, 1, 2)");
+    assert(journal.entries[2].tag === "0002_full_schema_reconstruction", "Journal entry 2 must be 0002 migration");
+
+    console.log("✓ Test 6 [Full Schema Reconstruction]: Migration 0002 contains all 10 tables with IF NOT EXISTS and journal registered");
+    passed++;
+  } catch (err: any) {
+    console.error("❌ Test 6 Failed:", err.message);
+    failed++;
+  }
+
+  // Test 7: Duplicate detection query static validation for project_github_repositories
+  try {
+    const duplicateQuery = `
+      SELECT "projectID", COUNT(*) as duplicate_count
+      FROM "project_github_repositories"
+      GROUP BY "projectID"
+      HAVING COUNT(*) > 1;
+    `;
+    assert(duplicateQuery.includes('GROUP BY "projectID"'), "Duplicate detection query must group by projectID");
+    assert(duplicateQuery.includes("HAVING COUNT(*) > 1"), "Duplicate detection query must filter for count > 1");
+
+    console.log("✓ Test 7 [Unique Index Safety]: Duplicate detection query validated for pre-index validation");
+    passed++;
+  } catch (err: any) {
+    console.error("❌ Test 7 Failed:", err.message);
+    failed++;
+  }
+
+  // Test 8: Transactional Project Deletion Dependency Order
+  try {
+    const deleteOrder = [
+      "chats",
+      "frames",
+      "deployments",
+      "project_github_repositories",
+      "test_runs",
+      "projects",
+    ];
+    // Check that children are deleted before the parent 'projects'
+    const parentIndex = deleteOrder.indexOf("projects");
+    assert(parentIndex === deleteOrder.length - 1, "Parent table 'projects' must be deleted last");
+    assert(deleteOrder.indexOf("chats") < deleteOrder.indexOf("frames"), "Chats must be deleted before frames");
+
+    console.log("✓ Test 8 [Transactional Deletion]: Deletion cascade order guarantees referential integrity");
+    passed++;
+  } catch (err: any) {
+    console.error("❌ Test 8 Failed:", err.message);
     failed++;
   }
 

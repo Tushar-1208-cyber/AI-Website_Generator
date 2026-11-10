@@ -160,8 +160,5 @@ export const stripeWebhookLogsTable = pgTable(
     eventId: varchar({ length: 255 }).notNull().unique(),
     eventType: varchar({ length: 255 }).notNull(),
     processedAt: timestamp().defaultNow(),
-  },
-  (table) => [
-    index("webhook_event_idx").on(table.eventId),
-  ]
+  }
 );

@@ -171,14 +171,15 @@ async function runDatabaseAuditTests() {
     assert(!sqlContent.toUpperCase().includes("DROP TABLE"), "Migration 0000 must NOT contain DROP TABLE");
     assert(!sqlContent.toUpperCase().includes("DROP COLUMN"), "Migration 0000 must NOT contain DROP COLUMN");
 
-    // Verify journal has entries 0 and 1 in proper order
+    // Verify journal has entries 0, 1, and 2 in proper order
     const journalPath = path.join(process.cwd(), "drizzle", "meta", "_journal.json");
     const journal = JSON.parse(fs.readFileSync(journalPath, "utf-8"));
-    assert(journal.entries.length === 2, "Journal must contain exactly 2 migration entries (0, 1)");
+    assert(journal.entries.length === 3, "Journal must contain exactly 3 migration entries (0, 1, 2)");
     assert(journal.entries[0].tag === "0000_low_vector", "Journal entry 0 must be 0000_low_vector baseline");
     assert(journal.entries[1].tag === "0001_safe_indexes_and_credit_default", "Journal entry 1 must be 0001 index migration");
+    assert(journal.entries[2].tag === "0002_existing_neon_schema_alignment", "Journal entry 2 must be 0002 existing neon alignment");
 
-    console.log("✓ Test 6 [Ordered Migration Chain]: Migration 0000 establishes all 10 tables before 0001 applies indexes");
+    console.log("✓ Test 6 [Ordered Migration Chain]: Migration journal tracks 0000, 0001, and 0002 in strict sequence");
     passed++;
   } catch (err: any) {
     console.error("❌ Test 6 Failed:", err.message);
@@ -248,6 +249,81 @@ async function runDatabaseAuditTests() {
     passed++;
   } catch (err: any) {
     console.error("❌ Test 9 Failed:", err.message);
+    failed++;
+  }
+
+  // Test 10: Static Migration 0002 Safety & Explicit Table Alignment Checks
+  try {
+    const mig0002Path = path.join(process.cwd(), "drizzle", "0002_existing_neon_schema_alignment.sql");
+    assert(fs.existsSync(mig0002Path), "Migration 0002 file must exist locally");
+
+    const sql0002 = fs.readFileSync(mig0002Path, "utf-8");
+    const sqlWithoutComments = sql0002.replace(/--.*$/gm, "").replace(/\/\*[\s\S]*?\*\//g, "").toUpperCase();
+
+    // Invariant 1: Absolutely zero destructive operations
+    assert(!sqlWithoutComments.includes("DROP TABLE"), "0002 must NOT contain DROP TABLE");
+    assert(!sqlWithoutComments.includes("DROP COLUMN"), "0002 must NOT contain DROP COLUMN");
+    assert(!sqlWithoutComments.includes("TRUNCATE"), "0002 must NOT contain TRUNCATE");
+    assert(!sqlWithoutComments.includes("DELETE FROM"), "0002 must NOT contain DELETE FROM");
+    assert(!/\bUPDATE\s+["']?[a-zA-Z_]+["']?\s+SET\b/i.test(sqlWithoutComments), "0002 must NOT contain UPDATE ... SET statements");
+
+    // Invariant 2: Explicit users table alignment
+    assert(sql0002.includes('ALTER TABLE "users" ADD COLUMN IF NOT EXISTS "createdOn"'), "Must add createdOn to users if missing");
+    assert(sql0002.includes('ALTER TABLE "users" ALTER COLUMN "credits" SET DEFAULT 15'), "Must set default credits to 15 without row mutation");
+
+    // Invariant 3: Safe precondition check before adding UNIQUE constraint to projects(projectID)
+    assert(sql0002.includes("projects_projectID_unique"), "Must target projects_projectID_unique constraint");
+    assert(sql0002.includes('GROUP BY "projectID"') && sql0002.includes("HAVING COUNT(*) > 1"), "Must include duplicate precondition check before adding UNIQUE constraint");
+
+    // Invariant 4: frames relationship to projects.projectID with foreign key precondition
+    assert(sql0002.includes("frames_projectID_projects_projectID_fk"), "Must declare frames_projectID_projects_projectID_fk");
+    assert(sql0002.includes("Precondition Failed: projects_projectID_unique constraint is missing"), "Must check referenced unique constraint before attaching frames FK");
+
+    // Invariant 5: Legacy chats preservation
+    assert(!sql0002.includes('ALTER TABLE "chats" ALTER COLUMN "frameID" SET NOT NULL'), "chats.frameID must remain nullable to preserve legacy nulls");
+    assert(!sql0002.includes("chats_frameID_frames_frameID_fk"), "Must NOT add chats.frameID FK (frames.frameID is non-unique)");
+    assert(!sql0002.includes("chats_createdBy_users_email_fk"), "Must NOT add chats.createdBy FK to preserve legacy unmapped creator");
+
+    // Invariant 6: Creation of all 6 missing application tables
+    const missingTables = [
+      "deployments",
+      "github_accounts",
+      "project_github_repositories",
+      "test_runs",
+      "subscriptions",
+      "stripe_webhook_logs",
+    ];
+    for (const tbl of missingTables) {
+      assert(sql0002.includes(`CREATE TABLE IF NOT EXISTS "${tbl}"`), `0002 must create missing table ${tbl}`);
+    }
+
+    console.log("✓ Test 10 [Migration 0002 Audit]: Explicit ALTERs, safe preconditions, 6 new tables, and legacy chat preservation verified");
+    passed++;
+  } catch (err: any) {
+    console.error("❌ Test 10 Failed:", err.message);
+    failed++;
+  }
+
+  // Test 11: Migration Strategy Path Validation & Static Verification State
+  try {
+    // Validate Path A (Fresh database): 0000 baseline defines 10 tables, 0001 adds indexes, 0002 converges idempotently
+    const baselinePath = path.join(process.cwd(), "drizzle", "0000_low_vector.sql");
+    const baselineContent = fs.readFileSync(baselinePath, "utf-8");
+    assert(baselineContent.includes('CREATE TABLE IF NOT EXISTS "users"'), "Path A: 0000 must create users");
+    assert(baselineContent.includes('CREATE TABLE IF NOT EXISTS "projects"'), "Path A: 0000 must create projects");
+
+    // Validate Path B (Existing Neon DB): 0002 provides convergence DDL for existing 4 tables and 6 missing tables
+    const mig0002Path = path.join(process.cwd(), "drizzle", "0002_existing_neon_schema_alignment.sql");
+    const mig0002Content = fs.readFileSync(mig0002Path, "utf-8");
+    assert(mig0002Content.includes('ALTER TABLE "users"'), "Path B: 0002 must explicitly ALTER users");
+    assert(mig0002Content.includes('ALTER TABLE "projects"'), "Path B: 0002 must explicitly ALTER projects");
+    assert(mig0002Content.includes('ALTER TABLE "frames"'), "Path B: 0002 must explicitly ALTER frames");
+
+    // Note: Live PostgreSQL execution has NOT been performed
+    console.log("✓ Test 11 [Dual Migration Paths]: Path A (Fresh DB) and Path B (Existing Neon DB) validated statically (Live DB execution not performed)");
+    passed++;
+  } catch (err: any) {
+    console.error("❌ Test 11 Failed:", err.message);
     failed++;
   }
 

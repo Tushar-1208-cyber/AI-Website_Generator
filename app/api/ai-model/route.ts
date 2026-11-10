@@ -1,10 +1,9 @@
 // app/api/ai-model/route.ts
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest } from "next/server";
 import { GoogleGenerativeAI, Part } from "@google/generative-ai";
 import { db } from "@/config/db";
 import { usersTable } from "@/config/schema";
 import { eq, sql, and, gte } from "drizzle-orm";
-import { ChatMessageItem } from "@/types/types";
 import { getAuthenticatedUser, safeErrorResponse } from "@/lib/authSecurity";
 import { z } from "zod";
 

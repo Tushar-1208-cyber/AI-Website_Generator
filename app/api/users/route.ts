@@ -1,19 +1,18 @@
 import { NextResponse } from 'next/server';
-import { currentUser } from '@clerk/nextjs/server';
 import { db } from '@/config/db';
 import { usersTable } from '@/config/schema';
-import { eq } from 'drizzle-orm';
+import { eq, sql, and, gte } from 'drizzle-orm';
+import { getAuthenticatedUser, safeErrorResponse } from '@/lib/authSecurity';
 
 // POST /api/users — create user if not exists, return user details
 export async function POST() {
   try {
-    const user = await currentUser();
-
-    if (!user || !user.primaryEmailAddress?.emailAddress) {
-      return NextResponse.json({ error: 'User not authenticated' }, { status: 401 });
+    const auth = await getAuthenticatedUser();
+    if (!auth) {
+      return safeErrorResponse('User not authenticated.', 401);
     }
 
-    const userEmail = user.primaryEmailAddress.emailAddress;
+    const { user, userEmail } = auth;
     const userName =
       user.firstName && user.lastName
         ? `${user.firstName} ${user.lastName}`
@@ -43,25 +42,19 @@ export async function POST() {
 
     return NextResponse.json({ user: newUser });
   } catch (error: unknown) {
-    console.error('Error creating/fetching user:', error);
-    const err = error as Error;
-    return NextResponse.json(
-      { error: 'Failed to process user', details: err?.message ?? 'unknown' },
-      { status: 500 }
-    );
+    return safeErrorResponse('Failed to process user record.', 500, error);
   }
 }
 
 // GET /api/users — get current user details
 export async function GET() {
   try {
-    const user = await currentUser();
-
-    if (!user || !user.primaryEmailAddress?.emailAddress) {
-      return NextResponse.json({ error: 'User not authenticated' }, { status: 401 });
+    const auth = await getAuthenticatedUser();
+    if (!auth) {
+      return safeErrorResponse('User not authenticated.', 401);
     }
 
-    const userEmail = user.primaryEmailAddress.emailAddress;
+    const { userEmail } = auth;
 
     const existingUser = await db
       .select()
@@ -70,63 +63,51 @@ export async function GET() {
       .limit(1);
 
     if (existingUser.length === 0) {
-      return NextResponse.json({ error: 'User not found' }, { status: 404 });
+      return safeErrorResponse('User not found.', 404);
     }
 
     return NextResponse.json({ user: existingUser[0] });
   } catch (error: unknown) {
-    console.error('Error fetching user:', error);
-    const err = error as Error;
-    return NextResponse.json(
-      { error: 'Failed to fetch user', details: err?.message ?? 'unknown' },
-      { status: 500 }
-    );
+    return safeErrorResponse('Failed to fetch user record.', 500, error);
   }
 }
 
-// PATCH /api/users — deduct 1 credit after AI generation
+// PATCH /api/users — deduct 1 credit atomically after AI generation
 export async function PATCH() {
   try {
-    const user = await currentUser();
-
-    if (!user || !user.primaryEmailAddress?.emailAddress) {
-      return NextResponse.json({ error: 'User not authenticated' }, { status: 401 });
+    const auth = await getAuthenticatedUser();
+    if (!auth) {
+      return safeErrorResponse('User not authenticated.', 401);
     }
 
-    const userEmail = user.primaryEmailAddress.emailAddress;
+    const { userEmail } = auth;
 
-    const existingUser = await db
-      .select()
-      .from(usersTable)
-      .where(eq(usersTable.email, userEmail))
-      .limit(1);
+    // Atomic update to avoid race conditions
+    const updated = await db
+      .update(usersTable)
+      .set({ credits: sql`${usersTable.credits} - 1` })
+      .where(and(eq(usersTable.email, userEmail), gte(usersTable.credits, 1)))
+      .returning();
 
-    if (existingUser.length === 0) {
-      return NextResponse.json({ error: 'User not found' }, { status: 404 });
-    }
+    if (updated.length === 0) {
+      const existingUser = await db
+        .select()
+        .from(usersTable)
+        .where(eq(usersTable.email, userEmail))
+        .limit(1);
 
-    const currentCredits = existingUser[0].credits ?? 0;
+      if (existingUser.length === 0) {
+        return safeErrorResponse('User not found.', 404);
+      }
 
-    if (currentCredits <= 0) {
       return NextResponse.json(
         { error: 'No credits remaining', credits: 0 },
         { status: 403 }
       );
     }
 
-    const [updated] = await db
-      .update(usersTable)
-      .set({ credits: currentCredits - 1 })
-      .where(eq(usersTable.email, userEmail))
-      .returning();
-
-    return NextResponse.json({ user: updated });
+    return NextResponse.json({ user: updated[0] });
   } catch (error: unknown) {
-    console.error('Error deducting credit:', error);
-    const err = error as Error;
-    return NextResponse.json(
-      { error: 'Failed to deduct credit', details: err?.message ?? 'unknown' },
-      { status: 500 }
-    );
+    return safeErrorResponse('Failed to deduct credit.', 500, error);
   }
 }

@@ -1,11 +1,12 @@
 // app/api/ai-model/route.ts
 import { NextRequest, NextResponse } from "next/server";
 import { GoogleGenerativeAI, Part } from "@google/generative-ai";
-import { currentUser } from "@clerk/nextjs/server";
 import { db } from "@/config/db";
 import { usersTable } from "@/config/schema";
 import { eq, sql, and, gte } from "drizzle-orm";
 import { ChatMessageItem } from "@/types/types";
+import { getAuthenticatedUser, safeErrorResponse } from "@/lib/authSecurity";
+import { z } from "zod";
 
 const GEMINI_KEY = process.env.GEMINI_API_KEY;
 
@@ -22,28 +23,58 @@ function isRateLimited(userEmail: string): boolean {
   return false;
 }
 
+const ChatMessageItemSchema = z.object({
+  role: z.string().max(30).optional(),
+  content: z.string().max(100000, "Message content exceeds maximum allowed length"),
+});
+
+const AiModelRequestSchema = z.object({
+  messages: z.array(ChatMessageItemSchema).min(1, "At least one message is required").max(100),
+  modelName: z.string().max(60).optional(),
+  image: z.string().max(7 * 1024 * 1024, "Image exceeds maximum allowed size (7MB)").optional().nullable(),
+  mode: z.enum(["full", "patch"]).optional(),
+  targetElement: z.record(z.string(), z.any()).optional().nullable(),
+  currentFilesSummary: z.string().max(200000).optional().nullable(),
+});
+
 export async function POST(req: NextRequest) {
   try {
     if (!GEMINI_KEY) {
-      return NextResponse.json(
-        { error: "Missing GEMINI_API_KEY in environment variables (.env.local)" },
-        { status: 500 }
-      );
+      return safeErrorResponse("AI service configuration is missing.", 500);
     }
 
-    const user = await currentUser();
-    if (!user || !user.primaryEmailAddress?.emailAddress) {
-      return NextResponse.json({ error: "User not authenticated" }, { status: 401 });
+    const auth = await getAuthenticatedUser();
+    if (!auth) {
+      return safeErrorResponse("User not authenticated. Please log in.", 401);
     }
 
-    const userEmail = user.primaryEmailAddress.emailAddress;
+    const { userEmail } = auth;
 
     if (isRateLimited(userEmail)) {
-      return NextResponse.json(
-        { error: "You're generating too fast. Please wait a moment and try again." },
-        { status: 429 }
-      );
+      return safeErrorResponse("You're generating too fast. Please wait a moment and try again.", 429);
     }
+
+    let rawBody: unknown;
+    try {
+      rawBody = await req.json();
+    } catch {
+      return safeErrorResponse("Invalid JSON payload.", 400);
+    }
+
+    const parseResult = AiModelRequestSchema.safeParse(rawBody);
+    if (!parseResult.success) {
+      const firstError = parseResult.error.issues[0]?.message || "Invalid request payload.";
+      return safeErrorResponse(firstError, 400);
+    }
+
+    const {
+      messages,
+      modelName = "gemini-3.5-flash",
+      image,
+      mode = "full",
+      targetElement,
+      currentFilesSummary,
+    } = parseResult.data;
 
     // 1. Transaction-safe atomic credit deduction
     // Ensures thread-safe check and decrement without race conditions
@@ -62,28 +93,8 @@ export async function POST(req: NextRequest) {
         .limit(1);
 
       if (existingUser.length > 0 && (existingUser[0].credits ?? 0) <= 0) {
-        return NextResponse.json(
-          { error: "No credits remaining. Please upgrade your plan on the pricing page." },
-          { status: 403 }
-        );
+        return safeErrorResponse("No credits remaining. Please upgrade your plan on the pricing page.", 403);
       }
-    }
-
-    const body = await req.json();
-    const {
-      messages,
-      modelName = "gemini-3.5-flash",
-      image,
-      mode = "full",
-      targetElement,
-      currentFilesSummary,
-    } = body;
-
-    if (!messages || !Array.isArray(messages) || messages.length === 0) {
-      return NextResponse.json(
-        { error: "Missing 'messages' array in request body" },
-        { status: 400 }
-      );
     }
 
     const isPatchMode = mode === "patch" || !!targetElement;
@@ -148,7 +159,7 @@ Example structure:
 
     const systemInstruction = isPatchMode ? PATCH_SYSTEM_INSTRUCTION : FULL_SYSTEM_INSTRUCTION;
 
-    let userPrompt = messages.map((m: ChatMessageItem) => `${m.role || 'user'}: ${m.content || ''}`).join("\n");
+    let userPrompt = messages.map((m) => `${m.role || 'user'}: ${m.content || ''}`).join("\n");
 
     if (targetElement) {
       userPrompt += `\n\nTARGET VISUAL ELEMENT TO EDIT:\nTag: ${targetElement.tagName}\nSelector: ${targetElement.selector}\nCurrent Classes: ${targetElement.className}\nExisting Text/HTML: ${targetElement.innerHTML || targetElement.textContent}`;
@@ -215,10 +226,7 @@ Example structure:
           .set({ credits: sql`${usersTable.credits} + 1` })
           .where(eq(usersTable.email, userEmail));
       }
-      return NextResponse.json(
-        { error: "AI service high traffic. Failed to initiate stream. Please try again." },
-        { status: 503 }
-      );
+      return safeErrorResponse("AI service high traffic. Failed to initiate stream. Please try again.", 503);
     }
 
     console.log(`[AI Stream] Streaming response started using model: ${selectedModelName}`);
@@ -252,8 +260,6 @@ Example structure:
       },
     });
   } catch (error: unknown) {
-    console.error("Gemini Route error:", error);
-    const errMessage = error instanceof Error ? error.message : String(error);
-    return NextResponse.json({ error: errMessage }, { status: 500 });
+    return safeErrorResponse("Internal server error while processing AI model request.", 500, error);
   }
 }

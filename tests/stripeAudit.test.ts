@@ -9,7 +9,7 @@
 import "dotenv/config";
 
 if (!process.env.DATABASE_URL) {
-  process.env.DATABASE_URL = "postgres://placeholder_user:placeholder_pass@ep-placeholder.neon.tech/neondb?sslmode=require";
+  process.env.DATABASE_URL = "postgresql://mock_user:mock_pass@localhost:5432/mock_db";
 }
 
 function assert(condition: boolean, message: string) {

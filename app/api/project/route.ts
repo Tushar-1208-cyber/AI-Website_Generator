@@ -1,6 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/config/db";
-import { usersTable, projectsTable, frameTable, chatTable } from "@/config/schema";
+import {
+  usersTable,
+  projectsTable,
+  frameTable,
+  chatTable,
+  deploymentsTable,
+  projectGitHubRepositoriesTable,
+  testRunsTable,
+} from "@/config/schema";
 import { eq, desc } from "drizzle-orm";
 import { ChatMessageItem } from "@/types/types";
 import { checkCanCreateProject } from "@/lib/planEntitlementEngine";
@@ -298,19 +306,36 @@ export async function DELETE(request: NextRequest) {
       return safeErrorResponse("Project not found or unauthorized.", 403);
     }
 
-    const frames = await db
-      .select()
-      .from(frameTable)
-      .where(eq(frameTable.projectID, projectId));
+    // Transactional deletion of all project child records in dependency order
+    await db.transaction(async (tx) => {
+      // 1. Find all frames for this project
+      const frames = await tx
+        .select({ frameID: frameTable.frameID })
+        .from(frameTable)
+        .where(eq(frameTable.projectID, projectId));
 
-    for (const frame of frames) {
-      if (frame.frameID) {
-        await db.delete(chatTable).where(eq(chatTable.frameID, frame.frameID));
+      // 2. Delete chats for all frames of this project
+      for (const frame of frames) {
+        if (frame.frameID) {
+          await tx.delete(chatTable).where(eq(chatTable.frameID, frame.frameID));
+        }
       }
-    }
 
-    await db.delete(frameTable).where(eq(frameTable.projectID, projectId));
-    await db.delete(projectsTable).where(eq(projectsTable.projectID, projectId));
+      // 3. Delete frames
+      await tx.delete(frameTable).where(eq(frameTable.projectID, projectId));
+
+      // 4. Delete deployments
+      await tx.delete(deploymentsTable).where(eq(deploymentsTable.projectID, projectId));
+
+      // 5. Delete project GitHub repository link record (DB link only; remote repo preserved)
+      await tx.delete(projectGitHubRepositoriesTable).where(eq(projectGitHubRepositoriesTable.projectID, projectId));
+
+      // 6. Delete test runs history
+      await tx.delete(testRunsTable).where(eq(testRunsTable.projectID, projectId));
+
+      // 7. Delete the parent project record
+      await tx.delete(projectsTable).where(eq(projectsTable.projectID, projectId));
+    });
 
     return NextResponse.json({ success: true });
   } catch (error: unknown) {

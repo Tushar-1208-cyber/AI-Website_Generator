@@ -1,11 +1,12 @@
-import { index, integer, jsonb, pgTable, text, timestamp, varchar } from "drizzle-orm/pg-core";
+import { index, uniqueIndex, integer, jsonb, pgTable, text, timestamp, varchar } from "drizzle-orm/pg-core";
 
 export const usersTable = pgTable("users", {
   id: integer().primaryKey().generatedAlwaysAsIdentity(),
   name: varchar({ length: 255 }).notNull(),
   email: varchar({ length: 255 }).notNull().unique(),
-  credits: integer().default(5),
+  credits: integer().default(15),
   plan: varchar({ length: 50 }).default("Free"),
+  createdOn: timestamp().defaultNow(),
 });
 
 export const projectsTable = pgTable(
@@ -33,6 +34,7 @@ export const frameTable = pgTable(
   },
   (table) => [
     index("frames_project_idx").on(table.projectID),
+    index("frames_frame_idx").on(table.frameID),
   ]
 );
 
@@ -104,6 +106,7 @@ export const projectGitHubRepositoriesTable = pgTable(
   (table) => [
     index("github_repos_project_idx").on(table.projectID),
     index("github_repos_user_idx").on(table.userEmail),
+    uniqueIndex("github_repos_project_unique_idx").on(table.projectID),
   ]
 );
 
@@ -146,6 +149,7 @@ export const subscriptionsTable = pgTable(
   (table) => [
     index("sub_user_idx").on(table.userEmail),
     index("sub_customer_idx").on(table.stripeCustomerId),
+    index("sub_stripe_sub_idx").on(table.stripeSubscriptionId),
   ]
 );
 

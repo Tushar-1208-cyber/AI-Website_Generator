@@ -327,6 +327,43 @@ async function runDatabaseAuditTests() {
     failed++;
   }
 
+  // Test 12: Migration Order & Referenced Uniqueness Invariant Validation
+  try {
+    const f0000 = fs.readFileSync(path.join(process.cwd(), "drizzle", "0000_low_vector.sql"), "utf-8");
+    const f0001 = fs.readFileSync(path.join(process.cwd(), "drizzle", "0001_safe_indexes_and_credit_default.sql"), "utf-8");
+    const f0002 = fs.readFileSync(path.join(process.cwd(), "drizzle", "0002_existing_neon_schema_alignment.sql"), "utf-8");
+
+    // 1. 0000 must NOT attach any foreign key referencing projects.projectID
+    assert(!f0000.includes('REFERENCES "projects"("projectID")'), "0000 must not reference projects(projectID) before unique constraint exists on Neon");
+    assert(!f0000.includes('REFERENCES "public"."projects"("projectID")'), "0000 must not reference public.projects(projectID)");
+
+    // 2. 0001 must NOT attach any foreign keys
+    assert(!f0001.includes("FOREIGN KEY"), "0001 must contain only performance indexes, no foreign keys");
+
+    // 3. In 0002, projects_projectID_unique must be declared before any FK referencing projects(projectID)
+    const uniquePos = f0002.indexOf("projects_projectID_unique");
+    assert(uniquePos !== -1, "0002 must declare projects_projectID_unique");
+
+    const framesFkPos = f0002.indexOf("frames_projectID_projects_projectID_fk");
+    const deploymentsFkPos = f0002.indexOf("deployments_projectID_projects_projectID_fk");
+    const githubReposFkPos = f0002.indexOf("project_github_repositories_projectID_projects_projectID_fk");
+    const testRunsFkPos = f0002.indexOf("test_runs_projectID_projects_projectID_fk");
+
+    assert(uniquePos < framesFkPos, "projects_projectID_unique must be established before frames FK is attached");
+    assert(uniquePos < deploymentsFkPos, "projects_projectID_unique must be established before deployments FK is attached");
+    assert(uniquePos < githubReposFkPos, "projects_projectID_unique must be established before project_github_repositories FK is attached");
+    assert(uniquePos < testRunsFkPos, "projects_projectID_unique must be established before test_runs FK is attached");
+
+    // 4. In 0000, verify orphan precondition check is present for legacy chats
+    assert(f0000.includes("orphan_count") && f0000.includes("chats_createdBy_users_email_fk"), "0000 must guard chats_createdBy FK with orphan count check");
+
+    console.log("✓ Test 12 [FK Ordering & Referenced Uniqueness]: Verified 0000 contains zero premature projectID FKs, and 0002 creates uniqueness before foreign keys");
+    passed++;
+  } catch (err: any) {
+    console.error("❌ Test 12 Failed:", err.message);
+    failed++;
+  }
+
   console.log("==================================================");
   console.log(`DATABASE AUDIT TEST SUITE: ${passed} PASSED, ${failed} FAILED`);
   console.log("==================================================");

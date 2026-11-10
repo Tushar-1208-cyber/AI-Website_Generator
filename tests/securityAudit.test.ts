@@ -13,7 +13,7 @@ import dotenv from "dotenv";
 dotenv.config({ path: ".env.local" });
 
 if (!process.env.DATABASE_URL) {
-  process.env.DATABASE_URL = "postgres://placeholder_user:placeholder_pass@ep-placeholder.neon.tech/neondb?sslmode=require";
+  process.env.DATABASE_URL = "postgresql://mock_user:mock_pass@localhost:5432/mock_db";
 }
 
 function assert(condition: boolean, message: string) {
@@ -90,14 +90,14 @@ async function runSecurityAuditTests() {
 
   // Test 4: safeErrorResponse data sanitization (Never leaks PostgreSQL error internals)
   try {
-    const sensitiveDbError = new Error('error: relation "users_table" does not exist at postgres://user:secret_pass@db.neon.tech');
+    const sensitiveDbError = new Error('error: relation "users_table" does not exist at postgres://mock_user:mock_secret_val@internal-db.example.com:5432/mock_db');
     const response = safeErrorResponse("Failed to process request.", 500, sensitiveDbError);
     assert(response.status === 500, "safeErrorResponse should return status 500");
 
     // Check response body does NOT leak credentials or SQL syntax
     const jsonBody = await response.json();
     assert(jsonBody.error === "Failed to process request.", "Client receives sanitized message");
-    assert(!JSON.stringify(jsonBody).includes("secret_pass"), "Sensitive DB credentials must not leak");
+    assert(!JSON.stringify(jsonBody).includes("mock_secret_val"), "Sensitive DB credentials must not leak");
     assert(!JSON.stringify(jsonBody).includes("users_table"), "Internal SQL table names must not leak");
 
     console.log("✓ Test 4: safeErrorResponse prevents database credential and schema leakage");

@@ -1,6 +1,5 @@
 // app/api/deploy/route.ts
 import { NextRequest, NextResponse } from "next/server";
-import { currentUser } from "@clerk/nextjs/server";
 import { db } from "@/config/db";
 import { projectsTable, frameTable, deploymentsTable } from "@/config/schema";
 import { eq, and, desc } from "drizzle-orm";
@@ -10,35 +9,55 @@ import {
   pollVercelDeploymentStatus,
   sanitizeVercelPath,
 } from "@/lib/vercelClient";
+import {
+  getAuthenticatedUser,
+  verifyProjectOwnership,
+  safeErrorResponse,
+  ProjectIdSchema,
+  FilesMapSchema,
+} from "@/lib/authSecurity";
+import { z } from "zod";
+
+const DeployRequestSchema = z.object({
+  projectId: ProjectIdSchema,
+  filesMap: FilesMapSchema.optional().nullable(),
+});
 
 export async function POST(req: NextRequest) {
   try {
-    const user = await currentUser();
-    if (!user || !user.primaryEmailAddress?.emailAddress) {
-      return NextResponse.json({ error: "User not authenticated" }, { status: 401 });
+    const auth = await getAuthenticatedUser();
+    if (!auth) {
+      return safeErrorResponse("User not authenticated", 401);
     }
 
-    const userEmail = user.primaryEmailAddress.emailAddress;
-    const body = await req.json();
-    const { projectId, filesMap: clientFilesMap } = body;
+    const { userEmail } = auth;
 
-    if (!projectId || typeof projectId !== "string") {
-      return NextResponse.json({ error: "Missing required 'projectId' in request body" }, { status: 400 });
+    let rawBody: unknown;
+    try {
+      rawBody = await req.json();
+    } catch {
+      return safeErrorResponse("Invalid JSON payload", 400);
     }
+
+    const parseResult = DeployRequestSchema.safeParse(rawBody);
+    if (!parseResult.success) {
+      const firstError = parseResult.error.issues[0]?.message || "Invalid deployment request payload";
+      return safeErrorResponse(firstError, 400);
+    }
+
+    const { projectId, filesMap: clientFilesMap } = parseResult.data;
 
     // 1. Verify project existence and user ownership
+    const isOwner = await verifyProjectOwnership(projectId, userEmail);
+    if (!isOwner) {
+      return safeErrorResponse("Project not found or you do not have permission to deploy it.", 403);
+    }
+
     const existingProjects = await db
       .select()
       .from(projectsTable)
       .where(and(eq(projectsTable.projectID, projectId), eq(projectsTable.createdBy, userEmail)))
       .limit(1);
-
-    if (existingProjects.length === 0) {
-      return NextResponse.json(
-        { error: "Project not found or you do not have permission to deploy it." },
-        { status: 403 }
-      );
-    }
 
     const project = existingProjects[0];
 
@@ -70,21 +89,15 @@ export async function POST(req: NextRequest) {
     }
 
     if (Object.keys(cleanFilesMap).length === 0) {
-      return NextResponse.json(
-        { error: "Deployment failed: Project contains no deployable code files." },
-        { status: 400 }
-      );
+      return safeErrorResponse("Deployment failed: Project contains no deployable code files.", 400);
     }
 
     if (!cleanFilesMap["index.html"] && !cleanFilesMap["index.htm"]) {
-      return NextResponse.json(
-        { error: "Deployment failed: Project must contain a primary 'index.html' entry file." },
-        { status: 400 }
-      );
+      return safeErrorResponse("Deployment failed: Project must contain a primary 'index.html' entry file.", 400);
     }
 
     // 4. Create Vercel Deployment via Vercel REST API
-    const projectName = project.name || `site-${projectId.slice(0, 8)}`;
+    const projectName = project?.name || `site-${projectId.slice(0, 8)}`;
     const deployInit = await createVercelDeployment({
       projectName,
       filesMap: cleanFilesMap,
@@ -122,39 +135,31 @@ export async function POST(req: NextRequest) {
       },
     });
   } catch (error: unknown) {
-    console.error("Vercel Deploy API Error:", error);
-    const errMessage = error instanceof Error ? error.message : String(error);
-    return NextResponse.json({ error: errMessage }, { status: 500 });
+    return safeErrorResponse("Failed to deploy project to Vercel.", 500, error);
   }
 }
 
 export async function GET(req: NextRequest) {
   try {
-    const user = await currentUser();
-    if (!user || !user.primaryEmailAddress?.emailAddress) {
-      return NextResponse.json({ error: "User not authenticated" }, { status: 401 });
+    const auth = await getAuthenticatedUser();
+    if (!auth) {
+      return safeErrorResponse("User not authenticated", 401);
     }
 
-    const userEmail = user.primaryEmailAddress.emailAddress;
+    const { userEmail } = auth;
     const { searchParams } = new URL(req.url);
-    const projectId = searchParams.get("projectId");
+    const rawProjectId = searchParams.get("projectId");
 
-    if (!projectId) {
-      return NextResponse.json({ error: "Missing 'projectId' query parameter" }, { status: 400 });
+    const parseResult = ProjectIdSchema.safeParse(rawProjectId);
+    if (!parseResult.success) {
+      return safeErrorResponse("Valid 'projectId' query parameter is required", 400);
     }
+    const projectId = parseResult.data;
 
     // Check project ownership
-    const existingProjects = await db
-      .select()
-      .from(projectsTable)
-      .where(and(eq(projectsTable.projectID, projectId), eq(projectsTable.createdBy, userEmail)))
-      .limit(1);
-
-    if (existingProjects.length === 0) {
-      return NextResponse.json(
-        { error: "Project not found or you do not have permission to view deployments." },
-        { status: 403 }
-      );
+    const isOwner = await verifyProjectOwnership(projectId, userEmail);
+    if (!isOwner) {
+      return safeErrorResponse("Project not found or you do not have permission to view deployments.", 403);
     }
 
     // Fetch deployment history
@@ -169,8 +174,6 @@ export async function GET(req: NextRequest) {
       deployments,
     });
   } catch (error: unknown) {
-    console.error("Vercel Deploy GET History Error:", error);
-    const errMessage = error instanceof Error ? error.message : String(error);
-    return NextResponse.json({ error: errMessage }, { status: 500 });
+    return safeErrorResponse("Failed to fetch deployment history.", 500, error);
   }
 }

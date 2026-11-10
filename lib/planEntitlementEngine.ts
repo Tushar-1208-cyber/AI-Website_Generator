@@ -1,6 +1,6 @@
 import { db } from "@/config/db";
 import { usersTable, projectsTable, subscriptionsTable } from "@/config/schema";
-import { eq, count } from "drizzle-orm";
+import { eq, count, sql, and, gte } from "drizzle-orm";
 
 export type SaaSPlan = "Free" | "Pro" | "Team";
 
@@ -88,7 +88,7 @@ export async function getUserSubscriptionDetails(userEmail: string): Promise<Use
     effectivePlan = "Free";
   }
 
-  const credits = user?.credits ?? (effectivePlan === "Team" ? 2000 : effectivePlan === "Pro" ? 500 : 15);
+  const credits = user?.credits ?? SAAS_PLANS[effectivePlan]?.aiCredits ?? 15;
   const entitlements = SAAS_PLANS[effectivePlan] || SAAS_PLANS.Free;
 
   // Count projects owned by user
@@ -129,22 +129,26 @@ export async function checkCanCreateProject(userEmail: string): Promise<{ allowe
 }
 
 /**
- * Atomic credit check and deduction helper
+ * Atomic credit check and deduction helper with race condition protection
  */
 export async function checkAndDeductUserCredits(
   userEmail: string,
   cost: number = 1
 ): Promise<{ allowed: boolean; remainingCredits: number; reason?: string }> {
-  const userRecords = await db
-    .select()
-    .from(usersTable)
-    .where(eq(usersTable.email, userEmail))
-    .limit(1);
+  const updatedUser = await db
+    .update(usersTable)
+    .set({ credits: sql`${usersTable.credits} - ${cost}` })
+    .where(and(eq(usersTable.email, userEmail), gte(usersTable.credits, cost)))
+    .returning({ remainingCredits: usersTable.credits });
 
-  const user = userRecords[0];
-  const currentCredits = user?.credits ?? 15;
+  if (updatedUser.length === 0) {
+    const userRecords = await db
+      .select({ credits: usersTable.credits })
+      .from(usersTable)
+      .where(eq(usersTable.email, userEmail))
+      .limit(1);
 
-  if (currentCredits < cost) {
+    const currentCredits = userRecords[0]?.credits ?? 0;
     return {
       allowed: false,
       remainingCredits: currentCredits,
@@ -152,15 +156,8 @@ export async function checkAndDeductUserCredits(
     };
   }
 
-  const updatedCredits = Math.max(0, currentCredits - cost);
-
-  await db
-    .update(usersTable)
-    .set({ credits: updatedCredits })
-    .where(eq(usersTable.email, userEmail));
-
   return {
     allowed: true,
-    remainingCredits: updatedCredits,
+    remainingCredits: updatedUser[0].remainingCredits ?? 0,
   };
 }

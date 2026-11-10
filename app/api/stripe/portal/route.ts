@@ -43,9 +43,8 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ url: portalSession.url });
   } catch (error: unknown) {
     console.error("Stripe billing portal error:", error);
-    const errorMessage = error instanceof Error ? error.message : "Failed to create customer portal session";
     return NextResponse.json(
-      { error: errorMessage },
+      { error: "Failed to create customer portal session." },
       { status: 500 }
     );
   }

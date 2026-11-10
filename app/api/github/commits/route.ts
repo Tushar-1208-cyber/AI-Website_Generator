@@ -1,45 +1,43 @@
 // app/api/github/commits/route.ts
 import { NextRequest, NextResponse } from "next/server";
-import { currentUser } from "@clerk/nextjs/server";
 import { db } from "@/config/db";
 import {
   githubAccountsTable,
   projectGitHubRepositoriesTable,
-  projectsTable,
 } from "@/config/schema";
 import { eq, and } from "drizzle-orm";
 import {
   decryptGitHubToken,
   getGitHubCommits,
 } from "@/lib/githubClient";
+import {
+  getAuthenticatedUser,
+  verifyProjectOwnership,
+  safeErrorResponse,
+  ProjectIdSchema,
+} from "@/lib/authSecurity";
 
 export async function GET(req: NextRequest) {
   try {
-    const user = await currentUser();
-    if (!user || !user.primaryEmailAddress?.emailAddress) {
-      return NextResponse.json({ error: "User not authenticated" }, { status: 401 });
+    const auth = await getAuthenticatedUser();
+    if (!auth) {
+      return safeErrorResponse("User not authenticated", 401);
     }
 
-    const userEmail = user.primaryEmailAddress.emailAddress;
+    const { userEmail } = auth;
     const { searchParams } = new URL(req.url);
-    const projectId = searchParams.get("projectId");
+    const rawProjectId = searchParams.get("projectId");
 
-    if (!projectId) {
-      return NextResponse.json({ error: "Missing 'projectId' query parameter" }, { status: 400 });
+    const parseResult = ProjectIdSchema.safeParse(rawProjectId);
+    if (!parseResult.success) {
+      return safeErrorResponse("Valid 'projectId' query parameter is required", 400);
     }
+    const projectId = parseResult.data;
 
     // Check project ownership
-    const existingProjects = await db
-      .select()
-      .from(projectsTable)
-      .where(and(eq(projectsTable.projectID, projectId), eq(projectsTable.createdBy, userEmail)))
-      .limit(1);
-
-    if (existingProjects.length === 0) {
-      return NextResponse.json(
-        { error: "Project not found or you do not have permission." },
-        { status: 403 }
-      );
+    const isOwner = await verifyProjectOwnership(projectId, userEmail);
+    if (!isOwner) {
+      return safeErrorResponse("Project not found or you do not have permission.", 403);
     }
 
     // Check repository link
@@ -84,8 +82,6 @@ export async function GET(req: NextRequest) {
       commits,
     });
   } catch (error: unknown) {
-    console.error("GitHub Commits API error:", error);
-    const errMessage = error instanceof Error ? error.message : String(error);
-    return NextResponse.json({ error: errMessage }, { status: 500 });
+    return safeErrorResponse("Failed to fetch GitHub commits", 500, error);
   }
 }

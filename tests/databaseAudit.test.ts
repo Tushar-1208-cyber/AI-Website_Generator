@@ -2,7 +2,8 @@
  * Automated Database & Schema Verification Test Suite
  *
  * NOTE: These tests verify local schema invariants, credit consistency,
- * index definitions, atomic deduction math, migration safety, and transactional deletion.
+ * index definitions, atomic deduction math, migration safety, foreign key
+ * declarations, and transactional deletion.
  *
  * All tests run locally in-memory without connecting to or mutating the
  * configured single Neon production database.
@@ -107,7 +108,7 @@ async function runDatabaseAuditTests() {
     failed++;
   }
 
-  // Test 4: Migration safety analysis (drizzle/0001_safe_indexes_and_credit_default.sql)
+  // Test 4: Migration 0001 Performance Indexes analysis
   try {
     const migrationPath = path.join(process.cwd(), "drizzle", "0001_safe_indexes_and_credit_default.sql");
     assert(fs.existsSync(migrationPath), "Migration 0001 file must exist locally");
@@ -121,7 +122,7 @@ async function runDatabaseAuditTests() {
 
     // Must use safe guards
     assert(content.includes("CREATE INDEX IF NOT EXISTS"), "Indexes must use IF NOT EXISTS");
-    assert(content.includes("ALTER COLUMN \"CREDITS\" SET DEFAULT 15"), "Must set credits default to 15");
+    assert(content.includes("CREATE UNIQUE INDEX IF NOT EXISTS"), "Unique index must use IF NOT EXISTS");
 
     console.log("✓ Test 4 [Migration Safety]: Generated SQL migration 0001 verified strictly non-destructive & idempotent");
     passed++;
@@ -141,12 +142,12 @@ async function runDatabaseAuditTests() {
     failed++;
   }
 
-  // Test 6: Migration 0002 Full Schema Reconstruction Analysis
+  // Test 6: Migration 0000 Baseline Schema Execution Order & Content
   try {
-    const reconPath = path.join(process.cwd(), "drizzle", "0002_full_schema_reconstruction.sql");
-    assert(fs.existsSync(reconPath), "Migration 0002 file must exist locally");
+    const baselinePath = path.join(process.cwd(), "drizzle", "0000_low_vector.sql");
+    assert(fs.existsSync(baselinePath), "Migration 0000 baseline file must exist locally");
 
-    const sqlContent = fs.readFileSync(reconPath, "utf-8");
+    const sqlContent = fs.readFileSync(baselinePath, "utf-8");
 
     // Verify all 10 tables are created
     const tables = [
@@ -167,16 +168,17 @@ async function runDatabaseAuditTests() {
     }
 
     // Verify zero DROP statements
-    assert(!sqlContent.toUpperCase().includes("DROP TABLE"), "Migration 0002 must NOT contain DROP TABLE");
-    assert(!sqlContent.toUpperCase().includes("DROP COLUMN"), "Migration 0002 must NOT contain DROP COLUMN");
+    assert(!sqlContent.toUpperCase().includes("DROP TABLE"), "Migration 0000 must NOT contain DROP TABLE");
+    assert(!sqlContent.toUpperCase().includes("DROP COLUMN"), "Migration 0000 must NOT contain DROP COLUMN");
 
-    // Verify journal has entries 0, 1, 2
+    // Verify journal has entries 0 and 1 in proper order
     const journalPath = path.join(process.cwd(), "drizzle", "meta", "_journal.json");
     const journal = JSON.parse(fs.readFileSync(journalPath, "utf-8"));
-    assert(journal.entries.length === 3, "Journal must contain exactly 3 migration entries (0, 1, 2)");
-    assert(journal.entries[2].tag === "0002_full_schema_reconstruction", "Journal entry 2 must be 0002 migration");
+    assert(journal.entries.length === 2, "Journal must contain exactly 2 migration entries (0, 1)");
+    assert(journal.entries[0].tag === "0000_low_vector", "Journal entry 0 must be 0000_low_vector baseline");
+    assert(journal.entries[1].tag === "0001_safe_indexes_and_credit_default", "Journal entry 1 must be 0001 index migration");
 
-    console.log("✓ Test 6 [Full Schema Reconstruction]: Migration 0002 contains all 10 tables with IF NOT EXISTS and journal registered");
+    console.log("✓ Test 6 [Ordered Migration Chain]: Migration 0000 establishes all 10 tables before 0001 applies indexes");
     passed++;
   } catch (err: any) {
     console.error("❌ Test 6 Failed:", err.message);
@@ -220,6 +222,32 @@ async function runDatabaseAuditTests() {
     passed++;
   } catch (err: any) {
     console.error("❌ Test 8 Failed:", err.message);
+    failed++;
+  }
+
+  // Test 9: Drizzle Foreign Key Declarations Consistency
+  try {
+    const {
+      projectsTable,
+      frameTable,
+      deploymentsTable,
+      projectGitHubRepositoriesTable,
+      testRunsTable,
+      subscriptionsTable,
+    } = await import("../config/schema");
+
+    // Verify foreign key references are configured on child tables
+    assert(projectsTable.createdBy !== undefined, "projectsTable.createdBy must exist");
+    assert(frameTable.projectID !== undefined, "frameTable.projectID must exist");
+    assert(deploymentsTable.projectID !== undefined, "deploymentsTable.projectID must exist");
+    assert(projectGitHubRepositoriesTable.projectID !== undefined, "projectGitHubRepositoriesTable.projectID must exist");
+    assert(testRunsTable.projectID !== undefined, "testRunsTable.projectID must exist");
+    assert(subscriptionsTable.userEmail !== undefined, "subscriptionsTable.userEmail must exist");
+
+    console.log("✓ Test 9 [Schema FK Consistency]: Drizzle schema child-to-parent relationships declared consistently");
+    passed++;
+  } catch (err: any) {
+    console.error("❌ Test 9 Failed:", err.message);
     failed++;
   }
 

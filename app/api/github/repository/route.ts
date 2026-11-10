@@ -1,6 +1,5 @@
 // app/api/github/repository/route.ts
 import { NextRequest, NextResponse } from "next/server";
-import { currentUser } from "@clerk/nextjs/server";
 import { db } from "@/config/db";
 import {
   githubAccountsTable,
@@ -13,35 +12,56 @@ import {
   createGitHubRepository,
   sanitizeGitHubRepoName,
 } from "@/lib/githubClient";
+import {
+  getAuthenticatedUser,
+  verifyProjectOwnership,
+  safeErrorResponse,
+  ProjectIdSchema,
+} from "@/lib/authSecurity";
+import { z } from "zod";
+
+const CreateRepoSchema = z.object({
+  projectId: ProjectIdSchema,
+  repoName: z.string().trim().max(100).optional(),
+  isPrivate: z.boolean().optional(),
+  description: z.string().trim().max(500).optional(),
+});
 
 export async function POST(req: NextRequest) {
   try {
-    const user = await currentUser();
-    if (!user || !user.primaryEmailAddress?.emailAddress) {
-      return NextResponse.json({ error: "User not authenticated" }, { status: 401 });
+    const auth = await getAuthenticatedUser();
+    if (!auth) {
+      return safeErrorResponse("User not authenticated", 401);
     }
 
-    const userEmail = user.primaryEmailAddress.emailAddress;
-    const body = await req.json();
-    const { projectId, repoName, isPrivate = true, description } = body;
+    const { userEmail } = auth;
 
-    if (!projectId || typeof projectId !== "string") {
-      return NextResponse.json({ error: "Missing required 'projectId' in body" }, { status: 400 });
+    let rawBody: unknown;
+    try {
+      rawBody = await req.json();
+    } catch {
+      return safeErrorResponse("Invalid JSON payload", 400);
     }
+
+    const parseResult = CreateRepoSchema.safeParse(rawBody);
+    if (!parseResult.success) {
+      const firstError = parseResult.error.issues[0]?.message || "Invalid repository payload";
+      return safeErrorResponse(firstError, 400);
+    }
+
+    const { projectId, repoName, isPrivate = true, description } = parseResult.data;
 
     // 1. Verify project ownership
+    const isOwner = await verifyProjectOwnership(projectId, userEmail);
+    if (!isOwner) {
+      return safeErrorResponse("Project not found or you do not have permission.", 403);
+    }
+
     const existingProjects = await db
       .select()
       .from(projectsTable)
       .where(and(eq(projectsTable.projectID, projectId), eq(projectsTable.createdBy, userEmail)))
       .limit(1);
-
-    if (existingProjects.length === 0) {
-      return NextResponse.json(
-        { error: "Project not found or you do not have permission." },
-        { status: 403 }
-      );
-    }
 
     // 2. Retrieve user's encrypted GitHub token
     const githubAccountRecords = await db
@@ -51,25 +71,19 @@ export async function POST(req: NextRequest) {
       .limit(1);
 
     if (githubAccountRecords.length === 0) {
-      return NextResponse.json(
-        { error: "GitHub account not connected. Please connect GitHub first." },
-        { status: 400 }
-      );
+      return safeErrorResponse("GitHub account not connected. Please connect GitHub first.", 400);
     }
 
     const token = decryptGitHubToken(githubAccountRecords[0].encryptedAccessToken);
     if (!token) {
-      return NextResponse.json(
-        { error: "Invalid or corrupted GitHub access token. Please reconnect GitHub." },
-        { status: 400 }
-      );
+      return safeErrorResponse("Invalid or corrupted GitHub access token. Please reconnect GitHub.", 400);
     }
 
     // 3. Create real GitHub repository via GitHub REST API
-    const targetRepoName = sanitizeGitHubRepoName(repoName || existingProjects[0].name || projectId);
+    const targetRepoName = sanitizeGitHubRepoName(repoName || existingProjects[0]?.name || projectId);
     const repoResult = await createGitHubRepository(token, {
       repoName: targetRepoName,
-      description: description || `Repository for ${existingProjects[0].name || projectId}`,
+      description: description || `Repository for ${existingProjects[0]?.name || projectId}`,
       isPrivate: Boolean(isPrivate),
     });
 
@@ -122,8 +136,6 @@ export async function POST(req: NextRequest) {
       },
     });
   } catch (error: unknown) {
-    console.error("GitHub Create Repo API error:", error);
-    const errMessage = error instanceof Error ? error.message : String(error);
-    return NextResponse.json({ error: errMessage }, { status: 500 });
+    return safeErrorResponse("Failed to create GitHub repository", 500, error);
   }
 }

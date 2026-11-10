@@ -156,13 +156,51 @@ CREATE TABLE IF NOT EXISTS "stripe_webhook_logs" (
 -- ========================================================
 -- SAFE FOREIGN KEY ATTACHMENTS (IDEMPOTENT EXCEPTION BLOCKS)
 -- ========================================================
-DO $$ BEGIN
-  ALTER TABLE "projects" ADD CONSTRAINT "projects_createdBy_users_email_fk" FOREIGN KEY ("createdBy") REFERENCES "public"."users"("email") ON DELETE NO ACTION ON UPDATE NO ACTION;
+DO $$
+DECLARE
+  orphan_count integer;
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_constraint
+    WHERE conname = 'projects_createdBy_users_email_fk'
+      AND conrelid = 'public.projects'::regclass
+  ) THEN
+    SELECT COUNT(*) INTO orphan_count
+    FROM "projects" p
+    WHERE p."createdBy" IS NOT NULL
+      AND NOT EXISTS (SELECT 1 FROM "users" u WHERE u."email" = p."createdBy");
+
+    IF orphan_count = 0 THEN
+      ALTER TABLE "projects" ADD CONSTRAINT "projects_createdBy_users_email_fk"
+      FOREIGN KEY ("createdBy") REFERENCES "public"."users"("email") ON DELETE NO ACTION ON UPDATE NO ACTION;
+    ELSE
+      RAISE NOTICE 'Skipping projects_createdBy_users_email_fk: % orphan records detected.', orphan_count;
+    END IF;
+  END IF;
 EXCEPTION WHEN duplicate_object THEN NULL;
 END $$;
 
-DO $$ BEGIN
-  ALTER TABLE "chats" ADD CONSTRAINT "chats_createdBy_users_email_fk" FOREIGN KEY ("createdBy") REFERENCES "public"."users"("email") ON DELETE NO ACTION ON UPDATE NO ACTION;
+DO $$
+DECLARE
+  orphan_count integer;
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_constraint
+    WHERE conname = 'chats_createdBy_users_email_fk'
+      AND conrelid = 'public.chats'::regclass
+  ) THEN
+    SELECT COUNT(*) INTO orphan_count
+    FROM "chats" c
+    WHERE c."createdBy" IS NOT NULL
+      AND NOT EXISTS (SELECT 1 FROM "users" u WHERE u."email" = c."createdBy");
+
+    IF orphan_count = 0 THEN
+      ALTER TABLE "chats" ADD CONSTRAINT "chats_createdBy_users_email_fk"
+      FOREIGN KEY ("createdBy") REFERENCES "public"."users"("email") ON DELETE NO ACTION ON UPDATE NO ACTION;
+    ELSE
+      RAISE NOTICE 'Skipping chats_createdBy_users_email_fk: % orphan records detected.', orphan_count;
+    END IF;
+  END IF;
 EXCEPTION WHEN duplicate_object THEN NULL;
 END $$;
 

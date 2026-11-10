@@ -71,14 +71,15 @@ export async function POST(req: NextRequest) {
 
           if (userEmail) {
             const subData = await stripe.subscriptions.retrieve(subscriptionId);
-            const periodStart = subData.items?.data[0]?.created
-              ? new Date(subData.items.data[0].created * 1000)
+            const rawSub = subData as any;
+            const periodStart = rawSub?.current_period_start
+              ? new Date(rawSub.current_period_start * 1000)
               : new Date();
-            const periodEnd = subData.items?.data[0]?.price
-              ? new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)
-              : new Date();
+            const periodEnd = rawSub?.current_period_end
+              ? new Date(rawSub.current_period_end * 1000)
+              : new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
 
-            const planCredits = targetPlan === "Team" ? 2000 : 500;
+            const planCredits = targetPlan === "Team" ? 2500 : 500;
 
             // Upsert subscription
             const existingSub = await db
@@ -165,9 +166,13 @@ export async function POST(req: NextRequest) {
             }
           }
 
-          const itemsData = subscription.items?.data[0];
-          const periodStart = itemsData ? new Date(itemsData.created * 1000) : new Date();
-          const periodEnd = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
+          const rawSubObj = subscription as any;
+          const periodStart = rawSubObj?.current_period_start
+            ? new Date(rawSubObj.current_period_start * 1000)
+            : new Date();
+          const periodEnd = rawSubObj?.current_period_end
+            ? new Date(rawSubObj.current_period_end * 1000)
+            : new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
 
           await db
             .update(subscriptionsTable)

@@ -1,52 +1,103 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { currentUser } from '@clerk/nextjs/server';
-import { db } from '@/config/db';
-import { frameTable, chatTable } from '@/config/schema';
-import { eq, and } from 'drizzle-orm';
+import { NextRequest, NextResponse } from "next/server";
+import { db } from "@/config/db";
+import { frameTable, chatTable } from "@/config/schema";
+import { eq, and } from "drizzle-orm";
+import {
+  getAuthenticatedUser,
+  verifyProjectOwnership,
+  safeErrorResponse,
+  ProjectIdSchema,
+  FrameIdSchema,
+} from "@/lib/authSecurity";
+import { z } from "zod";
+
+const CreateFrameSchema = z.object({
+  projectId: ProjectIdSchema,
+  startingCode: z.string().max(5 * 1024 * 1024, "Code payload exceeds 5MB limit").optional(),
+});
+
+const UpdateFrameSchema = z.object({
+  frameId: FrameIdSchema,
+  projectId: ProjectIdSchema,
+  designCode: z.string().max(5 * 1024 * 1024, "Code payload exceeds 5MB limit"),
+});
 
 // POST /api/frame — create a new version/frame inside an existing project.
 export async function POST(request: NextRequest) {
   try {
-    const { projectId, startingCode } = await request.json();
+    const authData = await getAuthenticatedUser();
+    if (!authData) {
+      return NextResponse.json({ error: "Unauthorized. Please log in." }, { status: 401 });
+    }
+    const { userEmail } = authData;
 
-    if (!projectId) {
-      return NextResponse.json({ error: 'projectId is required' }, { status: 400 });
+    const rawBody = await request.json().catch(() => ({}));
+    const parseResult = CreateFrameSchema.safeParse(rawBody);
+
+    if (!parseResult.success) {
+      return NextResponse.json(
+        { error: "Invalid request payload", details: parseResult.error.format() },
+        { status: 400 }
+      );
     }
 
-    const user = await currentUser();
-    if (!user || !user.primaryEmailAddress?.emailAddress) {
-      return NextResponse.json({ error: 'User not authenticated' }, { status: 401 });
+    const { projectId, startingCode } = parseResult.data;
+
+    // Verify project ownership
+    const isOwner = await verifyProjectOwnership(projectId, userEmail);
+    if (!isOwner) {
+      return NextResponse.json(
+        { error: "Forbidden: You do not have permission to add frames to this project." },
+        { status: 403 }
+      );
     }
 
-    const newFrameId = String(Math.floor(Math.random() * 1000000));
+    const newFrameId = `frame-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`;
 
     await db.insert(frameTable).values({
       frameID: newFrameId,
       projectID: projectId,
-      designCode: startingCode ?? '',
+      designCode: startingCode ?? "",
     });
 
     return NextResponse.json({ frameId: newFrameId });
   } catch (error: unknown) {
-    console.error('Error creating new version:', error);
-    const errMessage = error instanceof Error ? error.message : 'unknown';
-    return NextResponse.json(
-      { error: 'Failed to create new version', details: errMessage },
-      { status: 500 }
-    );
+    return safeErrorResponse("Failed to create new version", 500, error);
   }
 }
 
+// GET /api/frame?frameId=...&projectId=... — fetch specific frame and its chat history
 export async function GET(request: NextRequest) {
   try {
-    const searchParams = request.nextUrl.searchParams;
-    const frameId = searchParams.get('frameId');
-    const projectId = searchParams.get('projectId');
+    const authData = await getAuthenticatedUser();
+    if (!authData) {
+      return NextResponse.json({ error: "Unauthorized. Please log in." }, { status: 401 });
+    }
+    const { userEmail } = authData;
 
-    if (!frameId || !projectId) {
+    const searchParams = request.nextUrl.searchParams;
+    const rawFrameId = searchParams.get("frameId") || "";
+    const rawProjectId = searchParams.get("projectId") || "";
+
+    const frameIdResult = FrameIdSchema.safeParse(rawFrameId);
+    const projectIdResult = ProjectIdSchema.safeParse(rawProjectId);
+
+    if (!frameIdResult.success || !projectIdResult.success) {
       return NextResponse.json(
-        { error: 'frameId and projectId are required' },
+        { error: "Valid 'frameId' and 'projectId' query parameters are required" },
         { status: 400 }
+      );
+    }
+
+    const frameId = frameIdResult.data;
+    const projectId = projectIdResult.data;
+
+    // Verify user owns the project this frame belongs to
+    const isOwner = await verifyProjectOwnership(projectId, userEmail);
+    if (!isOwner) {
+      return NextResponse.json(
+        { error: "Forbidden: You do not have permission to access this project's frame." },
+        { status: 403 }
       );
     }
 
@@ -62,10 +113,7 @@ export async function GET(request: NextRequest) {
       .limit(1);
 
     if (frame.length === 0) {
-      return NextResponse.json(
-        { error: 'Frame not found' },
-        { status: 404 }
-      );
+      return NextResponse.json({ error: "Frame not found" }, { status: 404 });
     }
 
     const chats = await db
@@ -79,36 +127,50 @@ export async function GET(request: NextRequest) {
       if (Array.isArray(firstChat)) {
         chatMessages = firstChat;
       } else {
-        chatMessages = chats.map(chat => chat.ChatMessage).filter(Boolean);
+        chatMessages = chats.map((chat) => chat.ChatMessage).filter(Boolean);
       }
     }
 
     return NextResponse.json({
       ...frame[0],
-      chatMessages
+      chatMessages,
     });
   } catch (error: unknown) {
-    console.error('Error fetching frame:', error);
-    const errMessage = error instanceof Error ? error.message : 'unknown';
-    return NextResponse.json(
-      { error: 'Failed to fetch frame', details: errMessage },
-      { status: 500 }
-    );
+    return safeErrorResponse("Failed to fetch frame", 500, error);
   }
 }
 
+// PUT /api/frame — update design code for a specific frame
 export async function PUT(request: NextRequest) {
   try {
-    const { frameId, projectId, designCode } = await request.json();
+    const authData = await getAuthenticatedUser();
+    if (!authData) {
+      return NextResponse.json({ error: "Unauthorized. Please log in." }, { status: 401 });
+    }
+    const { userEmail } = authData;
 
-    if (!frameId || !projectId) {
+    const rawBody = await request.json().catch(() => ({}));
+    const parseResult = UpdateFrameSchema.safeParse(rawBody);
+
+    if (!parseResult.success) {
       return NextResponse.json(
-        { error: 'frameId and projectId are required' },
+        { error: "Invalid request payload", details: parseResult.error.format() },
         { status: 400 }
       );
     }
 
-    await db
+    const { frameId, projectId, designCode } = parseResult.data;
+
+    // Verify user owns the project this frame belongs to
+    const isOwner = await verifyProjectOwnership(projectId, userEmail);
+    if (!isOwner) {
+      return NextResponse.json(
+        { error: "Forbidden: You do not have permission to modify this project." },
+        { status: 403 }
+      );
+    }
+
+    const updateRes = await db
       .update(frameTable)
       .set({ designCode })
       .where(
@@ -116,15 +178,15 @@ export async function PUT(request: NextRequest) {
           eq(frameTable.frameID, frameId),
           eq(frameTable.projectID, projectId)
         )
-      );
+      )
+      .returning({ frameID: frameTable.frameID });
 
-    return NextResponse.json({ result: 'updated' });
+    if (updateRes.length === 0) {
+      return NextResponse.json({ error: "Frame not found for this project." }, { status: 404 });
+    }
+
+    return NextResponse.json({ result: "updated" });
   } catch (error: unknown) {
-    console.error('Error updating frame:', error);
-    const errMessage = error instanceof Error ? error.message : 'unknown';
-    return NextResponse.json(
-      { error: 'Failed to update frame', details: errMessage },
-      { status: 500 }
-    );
+    return safeErrorResponse("Failed to update frame", 500, error);
   }
 }

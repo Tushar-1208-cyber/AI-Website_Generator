@@ -29,7 +29,7 @@ export const frameTable = pgTable(
     id: integer().primaryKey().generatedAlwaysAsIdentity(),
     designCode: text(),
     frameID: varchar({ length: 255 }),
-    projectID: varchar({ length: 255 }),
+    projectID: varchar({ length: 255 }).references(() => projectsTable.projectID),
     createdOn: timestamp().defaultNow(),
   },
   (table) => [
@@ -57,7 +57,7 @@ export const deploymentsTable = pgTable(
   {
     id: integer().primaryKey().generatedAlwaysAsIdentity(),
     deploymentID: varchar({ length: 255 }).notNull(),
-    projectID: varchar({ length: 255 }).notNull(),
+    projectID: varchar({ length: 255 }).notNull().references(() => projectsTable.projectID),
     userEmail: varchar({ length: 255 }).references(() => usersTable.email),
     url: text().notNull(),
     status: varchar({ length: 50 }).notNull().default("BUILDING"),
@@ -92,7 +92,7 @@ export const projectGitHubRepositoriesTable = pgTable(
   "project_github_repositories",
   {
     id: integer().primaryKey().generatedAlwaysAsIdentity(),
-    projectID: varchar({ length: 255 }).notNull(),
+    projectID: varchar({ length: 255 }).notNull().references(() => projectsTable.projectID),
     userEmail: varchar({ length: 255 }).notNull().references(() => usersTable.email),
     repositoryId: varchar({ length: 255 }),
     owner: varchar({ length: 255 }).notNull(),
@@ -114,7 +114,7 @@ export const testRunsTable = pgTable(
   "test_runs",
   {
     id: integer().primaryKey().generatedAlwaysAsIdentity(),
-    projectID: varchar({ length: 255 }).notNull(),
+    projectID: varchar({ length: 255 }).notNull().references(() => projectsTable.projectID),
     userEmail: varchar({ length: 255 }).references(() => usersTable.email),
     scorePercent: integer().notNull(),
     totalTests: integer().notNull(),

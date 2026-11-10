@@ -30,13 +30,13 @@ export async function POST() {
       return NextResponse.json({ user: existingUser[0] });
     }
 
-    // Create new user with default 5 credits
+    // Create new user with default 15 credits (Free plan entitlement)
     const [newUser] = await db
       .insert(usersTable)
       .values({
         name: userName,
         email: userEmail,
-        credits: 5,
+        credits: 15,
       })
       .returning();
 

@@ -92,7 +92,7 @@ export default function BackendGeneratorModal({
               <h2 className="text-lg font-semibold text-white flex items-center gap-2">
                 Full-Stack AI Backend Generator
                 <span className="text-xs px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 font-medium">
-                  Phase 10
+                  Scaffolding & Sandbox
                 </span>
               </h2>
               <p className="text-xs text-slate-400">

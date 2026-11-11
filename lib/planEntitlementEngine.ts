@@ -47,11 +47,24 @@ export interface UserSubscriptionDetails {
   credits: number;
   entitlements: PlanEntitlements;
   projectCount: number;
+  isDeveloper?: boolean;
   stripeCustomerId?: string;
   stripeSubscriptionId?: string;
   subscriptionStatus?: string;
   currentPeriodEnd?: Date | null;
   cancelAtPeriodEnd?: boolean;
+}
+
+/**
+ * Verifies whether an email is registered in the server-side environment-controlled developer allowlist.
+ */
+export function isDeveloperEmail(email?: string | null): boolean {
+  if (!email) return false;
+  const allowlist = (process.env.DEVELOPER_EMAILS || process.env.ADMIN_EMAILS || "")
+    .split(",")
+    .map((e) => e.trim().toLowerCase())
+    .filter(Boolean);
+  return allowlist.includes(email.trim().toLowerCase());
 }
 
 /**
@@ -89,7 +102,11 @@ export async function getUserSubscriptionDetails(userEmail: string): Promise<Use
   }
 
   const credits = user?.credits ?? SAAS_PLANS[effectivePlan]?.aiCredits ?? 15;
-  const entitlements = SAAS_PLANS[effectivePlan] || SAAS_PLANS.Free;
+  const isDev = isDeveloperEmail(userEmail);
+  const baseEntitlements = SAAS_PLANS[effectivePlan] || SAAS_PLANS.Free;
+  const entitlements: PlanEntitlements = isDev
+    ? { ...baseEntitlements, maxProjects: 1000 }
+    : baseEntitlements;
 
   // Count projects owned by user
   const projCountResult = await db
@@ -106,6 +123,7 @@ export async function getUserSubscriptionDetails(userEmail: string): Promise<Use
     credits,
     entitlements,
     projectCount,
+    isDeveloper: isDev,
     stripeCustomerId: sub?.stripeCustomerId,
     stripeSubscriptionId: sub?.stripeSubscriptionId || undefined,
     subscriptionStatus: status,
@@ -118,6 +136,9 @@ export async function getUserSubscriptionDetails(userEmail: string): Promise<Use
  * Verifies if user is entitled to create a new project based on active plan project limits
  */
 export async function checkCanCreateProject(userEmail: string): Promise<{ allowed: boolean; reason?: string }> {
+  if (isDeveloperEmail(userEmail)) {
+    return { allowed: true };
+  }
   const details = await getUserSubscriptionDetails(userEmail);
   if (details.projectCount >= details.entitlements.maxProjects) {
     return {

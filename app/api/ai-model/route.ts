@@ -198,23 +198,41 @@ Example structure:
 
     const fallbackModels = getModelFallbackList(modelName || "gemini-3.5-flash");
 
-    // 2. Real-time streaming generator
+    // 2. Real-time streaming generator with bounded backoff
     let activeStream: AsyncIterable<any> | null = null;
     let selectedModelName = "";
 
+    const isTransientError = (err: any): boolean => {
+      const msg = String(err?.message || "").toLowerCase();
+      const status = err?.status || err?.statusCode;
+      return status === 429 || status === 503 || msg.includes("429") || msg.includes("503") || msg.includes("resource_exhausted") || msg.includes("high traffic");
+    };
+
     for (const currentModel of fallbackModels) {
-      try {
-        console.log(`[AI Stream] Initializing stream with model: ${currentModel}`);
-        const model = genAI.getGenerativeModel({ model: currentModel });
-        const streamResult = await model.generateContentStream({
-          contents: [{ role: "user", parts }],
-        });
-        activeStream = streamResult.stream;
-        selectedModelName = currentModel;
-        break;
-      } catch (err) {
-        console.warn(`[AI Stream] Model ${currentModel} stream initiation failed:`, err);
+      let attempts = 0;
+      const maxAttempts = 2;
+      while (attempts < maxAttempts) {
+        attempts++;
+        try {
+          console.log(`[AI Stream] Initializing stream with model: ${currentModel} (attempt ${attempts})`);
+          const model = genAI.getGenerativeModel({ model: currentModel });
+          const streamResult = await model.generateContentStream({
+            contents: [{ role: "user", parts }],
+          });
+          activeStream = streamResult.stream;
+          selectedModelName = currentModel;
+          break;
+        } catch (err) {
+          console.warn(`[AI Stream] Model ${currentModel} attempt ${attempts} failed:`, err);
+          if (attempts < maxAttempts && isTransientError(err)) {
+            const delay = 500 * Math.pow(2, attempts - 1);
+            await new Promise((r) => setTimeout(r, delay));
+            continue;
+          }
+          break;
+        }
       }
+      if (activeStream) break;
     }
 
     if (!activeStream) {

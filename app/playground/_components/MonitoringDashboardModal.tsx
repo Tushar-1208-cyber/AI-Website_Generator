@@ -58,13 +58,13 @@ export default function MonitoringDashboardModal({
             </div>
             <div>
               <h2 className="text-lg font-semibold text-white flex items-center gap-2">
-                Production Deployment & Real-Time Analytics Dashboard
-                <span className="text-xs px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 font-medium">
-                  Phase 21 (Final Phase)
+                Cloud Telemetry & Deployment Sandbox
+                <span className="text-xs px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 font-medium">
+                  Demo & Simulation
                 </span>
               </h2>
               <p className="text-xs text-slate-400">
-                Multi-cloud deployment pipeline, custom domain SSL provisioning, and live Core Web Vitals telemetry.
+                Simulated multi-cloud deployment pipeline, custom domain SSL provisioning preview, and Core Web Vitals telemetry sandbox. Real deployments are managed via Vercel in the header.
               </p>
             </div>
           </div>

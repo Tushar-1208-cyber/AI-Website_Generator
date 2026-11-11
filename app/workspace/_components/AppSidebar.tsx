@@ -103,11 +103,12 @@ function AppSidebar() {
               <span className="text-[10px] text-blue-600 font-semibold bg-blue-50 px-1.5 py-0.5 rounded">SaaS Platform</span>
             </div>
           </div>
-          <Link href="/workspace" className='mt-4 w-full block'>
-            <Button className='w-full bg-slate-900 hover:bg-slate-800 text-white shadow-sm font-medium gap-1.5 rounded-xl h-10 transition-all'>
-              <Plus className="size-4" /> New Project
-            </Button>
-          </Link>
+          <Button
+            onClick={() => router.push(`/workspace?new=${Date.now()}`)}
+            className='w-full mt-4 bg-slate-900 hover:bg-slate-800 text-white shadow-sm font-medium gap-1.5 rounded-xl h-10 transition-all'
+          >
+            <Plus className="size-4" /> New Project
+          </Button>
         </SidebarHeader>
 
         <SidebarContent className="px-2 py-3 overflow-y-auto max-h-[calc(100vh-220px)] scrollbar-thin scrollbar-thumb-slate-200">

@@ -3,7 +3,7 @@
 import { ImagePlus, ArrowUp, LayoutDashboard, Key, Home, User, Loader2, Mic, MicOff, Shuffle, ShoppingCart, Newspaper, Briefcase, Sparkles, Wand2 } from 'lucide-react'
 import React, { useState, useRef } from 'react'
 import { useRouter } from 'next/navigation'
-import axios from 'axios'
+import axios, { AxiosError } from 'axios'
 import { Button } from '@/components/ui/button'
 import { SignInButton, SignedOut, SignedIn } from '@clerk/nextjs'
 import { v4 as uuidv4 } from 'uuid';
@@ -121,7 +121,11 @@ function Hero() {
     } catch (error) {
       setIsLoading(false);
       console.error('[Hero] Failed to create project:', error)
-      toast.error('Failed to create project. Please try again.')
+      let errorMessage = 'Failed to create project. Please try again.';
+      if (error instanceof AxiosError && error.response?.data?.error) {
+        errorMessage = error.response.data.error;
+      }
+      toast.error(errorMessage)
     }
   }
 
@@ -259,7 +263,7 @@ function Hero() {
 
 export default Hero
 
-const generateRandomFrameNumber = () => {
+const generateRandomFrameNumber = (): string => {
   const num = Math.floor(Math.random() * 1000000);
-  return num
+  return num.toString();
 }

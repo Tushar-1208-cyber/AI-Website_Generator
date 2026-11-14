@@ -2,9 +2,11 @@
 
 import React, { useState, useMemo } from "react";
 import {
+  Compass,
   Download,
   Eye,
   FileCode,
+  RotateCcw,
   X,
   Zap,
 } from "lucide-react";
@@ -114,6 +116,7 @@ const CDN_HEAD = `
 const PREVIEW_GUARD = `
   <script>
     (function () {
+      // 1. Safe localStorage polyfill
       try {
         window.localStorage.getItem('test');
       } catch (e) {
@@ -129,6 +132,7 @@ const PREVIEW_GUARD = `
         });
       }
 
+      // 2. Safe DOMContentLoaded dispatcher if already ready
       var origAddEventListener = document.addEventListener;
       document.addEventListener = function (type, listener, options) {
         if (type === 'DOMContentLoaded' && (document.readyState === 'interactive' || document.readyState === 'complete')) {
@@ -147,19 +151,101 @@ const PREVIEW_GUARD = `
           origAddEventListener.call(document, type, listener, options);
         }
       };
-    })();
 
-    document.addEventListener('submit', function (event) {
-      event.preventDefault();
-    }, true);
-    document.addEventListener('click', function (event) {
-      var link = event.target && event.target.closest ? event.target.closest('a') : null;
-      if (!link) return;
-      var href = link.getAttribute('href') || '';
-      if (/playground|localhost:3000/i.test(href) || link.target === '_top') {
+      // 3. Prevent unexpected iframe unload navigation
+      window.addEventListener('beforeunload', function (e) {
+        e.preventDefault();
+        return (e.returnValue = '');
+      });
+
+      // 4. Intercept form submissions safely without navigating away
+      document.addEventListener('submit', function (event) {
         event.preventDefault();
-      }
-    }, true);
+        event.stopPropagation();
+        console.log('[Preview] Form submission prevented safely without navigating away.');
+      }, true);
+
+      // 5. Bulletproof Anchor Navigation & Click Interceptor
+      document.addEventListener('click', function (event) {
+        var link = event.target && event.target.closest ? event.target.closest('a') : null;
+        if (!link) {
+          // If a button inside a form was clicked, ensure it does not trigger navigation
+          var btn = event.target && event.target.closest ? event.target.closest('button, input[type="submit"]') : null;
+          if (btn && btn.form) {
+            event.preventDefault();
+            btn.form.dispatchEvent(new CustomEvent('submit', { bubbles: true, cancelable: true }));
+          }
+          return;
+        }
+
+        var href = link.getAttribute('href') || '';
+        var rawHref = href.trim();
+
+        // 5a. Empty or root links
+        if (!rawHref || rawHref === '#' || rawHref === '') {
+          event.preventDefault();
+          window.scrollTo({ top: 0, behavior: 'smooth' });
+          return;
+        }
+
+        // 5b. In-page hash anchor navigation (e.g. #features, #pricing, #dashboard)
+        if (rawHref.startsWith('#')) {
+          event.preventDefault();
+          var targetId = rawHref.slice(1);
+          if (targetId) {
+            try {
+              var targetEl = document.getElementById(targetId) ||
+                document.querySelector('[name="' + CSS.escape(targetId) + '"]') ||
+                document.querySelector('#' + CSS.escape(targetId));
+              if (targetEl) {
+                targetEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
+              }
+            } catch (err) {
+              console.warn('[Preview] Failed to scroll to anchor:', err);
+            }
+          }
+          return;
+        }
+
+        // 5c. javascript: links (e.g. javascript:void(0), javascript:;)
+        if (/^javascript:/i.test(rawHref)) {
+          event.preventDefault();
+          if (!/^javascript:\s*void\s*\(/i.test(rawHref) && rawHref !== 'javascript:;') {
+            try {
+              var jsCode = decodeURIComponent(rawHref.replace(/^javascript:/i, ''));
+              new Function(jsCode)();
+            } catch (err) {
+              console.warn('[Preview] Error evaluating javascript: link:', err);
+            }
+          }
+          return;
+        }
+
+        // 5d. External links (http, https, //)
+        if (/^(?:https?:)?\/\//i.test(rawHref)) {
+          event.preventDefault();
+          try {
+            window.open(rawHref, '_blank', 'noopener,noreferrer');
+          } catch (err) {
+            console.warn('[Preview] Blocked popup window:', err);
+          }
+          return;
+        }
+
+        // 5e. tel:, mailto:, sms: protocols - allow default client trigger without navigating away
+        if (/^(?:mailto|tel|sms):/i.test(rawHref)) {
+          return;
+        }
+
+        // 5f. Host protection (e.g. clicking /playground or localhost)
+        if (/playground|localhost:3000/i.test(rawHref) || link.target === '_top' || link.target === '_parent') {
+          event.preventDefault();
+          return;
+        }
+
+        // 5g. Internal page links (e.g. about.html, /contact.html) are handled by IFRAME_PAGE_ROUTER_SCRIPT
+      }, true);
+    })();
   </script>`;
 
 function WebsiteDesign({
@@ -195,6 +281,21 @@ function WebsiteDesign({
   const [selectedElementInfo, setSelectedElementInfo] = useState<SelectedElementInfo | null>(null);
   const [isFixingErrors, setIsFixingErrors] = useState<boolean>(false);
   const [lastFixSummary, setLastFixSummary] = useState<string | null>(null);
+  const [previewRefreshKey, setPreviewRefreshKey] = useState<number>(0);
+
+  const handleIframeLoad = (e: React.SyntheticEvent<HTMLIFrameElement>) => {
+    const iframe = e.currentTarget;
+    try {
+      const doc = iframe.contentDocument;
+      if (doc && (!doc.body || !doc.body.innerHTML || doc.body.innerHTML.trim() === "")) {
+        console.warn("[Preview] Detected blank iframe state. Restoring preview content...");
+        iframe.srcdoc = fullHtml;
+      }
+    } catch {
+      // Cross-origin navigation blocked; restore srcdoc
+      iframe.srcdoc = fullHtml;
+    }
+  };
 
   const params = useParams();
   const projectId = typeof params?.projectId === "string" ? params.projectId : "project-demo";
@@ -501,13 +602,36 @@ function WebsiteDesign({
               className={`${getDeviceWidth()} flex h-full min-h-0 min-w-0 flex-col overflow-hidden rounded-2xl border border-slate-300 bg-white shadow-2xl transition-all duration-300 ease-in-out`}
             >
               {fullHtml ? (
-                <iframe
-                  key={`${generatedCode.length}-${generatedCode.slice(0, 30)}`}
-                  srcDoc={fullHtml}
-                  className="block h-full min-h-0 w-full border-none"
-                  title="Generated Website Preview"
-                  sandbox="allow-scripts allow-same-origin allow-forms"
-                />
+                <>
+                  {/* Preview Status & Controls Mini Bar */}
+                  <div className="flex shrink-0 items-center justify-between border-b border-slate-200 bg-slate-50/90 px-3 py-1.5 text-xs text-slate-600">
+                    <div className="flex items-center gap-2">
+                      <span className="flex items-center gap-1 font-mono text-[11px] text-slate-600 font-medium">
+                        <Compass className="size-3 text-blue-500" />
+                        {activePreviewPage || "index.html"}
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={() => setPreviewRefreshKey((prev) => prev + 1)}
+                        title="Reload Live Preview"
+                        className="flex items-center gap-1 rounded-md px-2 py-0.5 text-[11px] font-medium text-slate-600 hover:bg-slate-200 hover:text-slate-900 transition-colors cursor-pointer"
+                      >
+                        <RotateCcw className="size-3 text-slate-500" />
+                        <span>Reload</span>
+                      </button>
+                    </div>
+                  </div>
+
+                  <iframe
+                    key={`${generatedCode.length}-${generatedCode.slice(0, 30)}-${previewRefreshKey}-${activePreviewPage}`}
+                    srcDoc={fullHtml}
+                    onLoad={handleIframeLoad}
+                    className="block h-full min-h-0 w-full border-none flex-1"
+                    title="Generated Website Preview"
+                    sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-popups-to-escape-sandbox allow-modals allow-downloads"
+                  />
+                </>
               ) : (
                 <div className="w-full h-full flex flex-col items-center justify-center text-slate-500 gap-2 p-6 text-center">
                   <Eye className="size-8 text-slate-600" />

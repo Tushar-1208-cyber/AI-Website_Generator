@@ -79,23 +79,36 @@ export const IFRAME_PAGE_ROUTER_SCRIPT = `
 <script>
   (function () {
     document.addEventListener('click', function (e) {
-      var link = e.target.closest('a');
+      var link = e.target && e.target.closest ? e.target.closest('a') : null;
       if (!link) return;
 
       var href = link.getAttribute('href');
-      if (!href || href.startsWith('#') || href.startsWith('http') || href.startsWith('mailto:') || href.startsWith('tel:')) {
+      if (!href) return;
+
+      // Ignore in-page anchors, external protocols, and javascript: pseudo-protocol
+      if (
+        href.startsWith('#') ||
+        /^(?:https?:|mailto:|tel:|sms:|javascript:|data:)/i.test(href)
+      ) {
         return;
       }
 
-      // Internal page link detected (e.g. about.html, contact.html)
+      // Internal page link detected (e.g. about.html, contact.html, /pricing.html)
       e.preventDefault();
-      var targetPage = href.replace(/^\\.\\//, '').replace(/^\\//, '');
-      console.log('[Multi-Page Router] Navigating to:', targetPage);
+      var cleanPage = href
+        .replace(/^\\.\\//, '')
+        .replace(/^\\//, '')
+        .split('?')[0]
+        .split('#')[0]
+        .trim();
 
-      try {
-        window.parent.postMessage({ type: 'NAVIGATE_PAGE', page: targetPage }, '*');
-      } catch (err) {
-        console.error('[Multi-Page Router] Message failed:', err);
+      if (cleanPage) {
+        console.log('[Multi-Page Router] Navigating to:', cleanPage);
+        try {
+          window.parent.postMessage({ type: 'NAVIGATE_PAGE', page: cleanPage }, '*');
+        } catch (err) {
+          console.error('[Multi-Page Router] Message failed:', err);
+        }
       }
     }, true);
   })();

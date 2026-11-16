@@ -1,6 +1,6 @@
 "use client";
 
-import { ArrowUp, Sparkles, Mic, MicOff } from 'lucide-react'
+import { ArrowUp, Sparkles, Mic, MicOff, RotateCcw } from 'lucide-react'
 import React, { useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { Spinner } from '@/components/ui/spinner'
@@ -104,22 +104,37 @@ function ChatSection({ Messages, onSend, loading }: ChatSectionProps) {
             </div>
           </div>
         ) : (
-          Messages?.map((message, index) => (
-            <div
-              key={index}
-              className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}
-            >
+          Messages?.map((message, index) => {
+            const isError = message.role !== 'user' && message.content.startsWith('❌');
+            return (
               <div
-                className={`p-3.5 rounded-2xl max-w-[88%] text-xs leading-relaxed ${
-                  message.role === 'user'
-                    ? 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-xs font-medium'
-                    : 'bg-slate-100 text-slate-800 border border-slate-200/90 font-medium'
-                }`}
+                key={index}
+                className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}
               >
-                {message.content}
+                <div
+                  className={`p-3.5 rounded-2xl max-w-[88%] text-xs leading-relaxed ${
+                    message.role === 'user'
+                      ? 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-xs font-medium'
+                      : isError
+                      ? 'bg-rose-50 text-rose-900 border border-rose-200/90 font-medium'
+                      : 'bg-slate-100 text-slate-800 border border-slate-200/90 font-medium'
+                  }`}
+                >
+                  <div>{message.content}</div>
+                  {isError && index > 0 && Messages[index - 1]?.role === 'user' && (
+                    <button
+                      onClick={() => onSend(Messages[index - 1].content)}
+                      disabled={loading}
+                      className="mt-2.5 inline-flex items-center gap-1.5 px-3 py-1.5 bg-rose-600 hover:bg-rose-500 text-white rounded-xl text-[11px] font-bold shadow-xs transition-all cursor-pointer disabled:opacity-50"
+                    >
+                      <RotateCcw className="size-3" />
+                      <span>Retry Generation</span>
+                    </button>
+                  )}
+                </div>
               </div>
-            </div>
-          ))
+            );
+          })
         )}
         {loading && (
           <div className='flex justify-start animate-in fade-in duration-300'>

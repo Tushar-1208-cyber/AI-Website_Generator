@@ -1,4 +1,4 @@
-import { currentUser, auth } from "@clerk/nextjs/server";
+import { currentUser, auth, clerkClient } from "@clerk/nextjs/server";
 import { db } from "@/config/db";
 import { projectsTable, frameTable } from "@/config/schema";
 import { eq, and } from "drizzle-orm";
@@ -49,6 +49,27 @@ export async function getAuthenticatedUser(): Promise<{
     }
   } catch (authErr) {
     console.error("[AuthSecurity] auth() fallback failed:", authErr);
+  }
+
+  // Strategy 3: Authoritative backend profile lookup via clerkClient using verified session userId
+  try {
+    const authData = await auth();
+    if (authData?.userId) {
+      const client = await clerkClient();
+      const clerkUser = await client.users.getUser(authData.userId);
+      const email =
+        clerkUser?.primaryEmailAddress?.emailAddress ||
+        clerkUser?.emailAddresses?.[0]?.emailAddress;
+
+      if (email && typeof email === "string") {
+        return {
+          user: clerkUser,
+          userEmail: email,
+        };
+      }
+    }
+  } catch (clientErr) {
+    console.error("[AuthSecurity] clerkClient lookup failed:", clientErr);
   }
 
   return null;

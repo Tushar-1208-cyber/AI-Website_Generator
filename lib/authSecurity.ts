@@ -1,4 +1,4 @@
-import { currentUser } from "@clerk/nextjs/server";
+import { currentUser, auth } from "@clerk/nextjs/server";
 import { db } from "@/config/db";
 import { projectsTable, frameTable } from "@/config/schema";
 import { eq, and } from "drizzle-orm";
@@ -7,25 +7,51 @@ import { z } from "zod";
 
 /**
  * Extracts and returns the authenticated Clerk user and primary email address.
+ * Uses currentUser() with automatic fallback to auth() session token claims.
  * Returns null if the user is unauthenticated or has no valid email.
  */
 export async function getAuthenticatedUser(): Promise<{
   user: any;
   userEmail: string;
 } | null> {
+  // Strategy 1: Fetch full User profile via currentUser()
   try {
     const user = await currentUser();
-    if (!user || !user.primaryEmailAddress?.emailAddress) {
-      return null;
+    const email =
+      user?.primaryEmailAddress?.emailAddress ||
+      user?.emailAddresses?.[0]?.emailAddress;
+
+    if (user && email && typeof email === "string") {
+      return {
+        user,
+        userEmail: email,
+      };
     }
-    return {
-      user,
-      userEmail: user.primaryEmailAddress.emailAddress,
-    };
   } catch (err) {
-    console.error("[AuthSecurity] Failed to fetch current user:", err);
-    return null;
+    console.warn("[AuthSecurity] currentUser() failed, falling back to auth():", err);
   }
+
+  // Strategy 2: Fast local JWT session token verification via auth()
+  try {
+    const authData = await auth();
+    const claims = authData?.sessionClaims as any;
+    const email =
+      claims?.email ||
+      claims?.user_email ||
+      claims?.primary_email ||
+      claims?.email_address;
+
+    if (authData?.userId && email && typeof email === "string") {
+      return {
+        user: { id: authData.userId },
+        userEmail: email,
+      };
+    }
+  } catch (authErr) {
+    console.error("[AuthSecurity] auth() fallback failed:", authErr);
+  }
+
+  return null;
 }
 
 /**
@@ -64,19 +90,30 @@ export async function verifyFrameOwnership(
 ): Promise<{ isOwner: boolean; projectId?: string }> {
   if (!frameId || !userEmail) return { isOwner: false };
   try {
-    const frames = await db
-      .select({ projectID: frameTable.projectID })
+    const records = await db
+      .select({
+        frameId: frameTable.frameID,
+        projectId: frameTable.projectID,
+        projectOwner: projectsTable.createdBy,
+      })
       .from(frameTable)
-      .where(eq(frameTable.frameID, frameId))
+      .innerJoin(projectsTable, eq(frameTable.projectID, projectsTable.projectID))
+      .where(
+        and(
+          eq(frameTable.frameID, frameId),
+          eq(projectsTable.createdBy, userEmail)
+        )
+      )
       .limit(1);
 
-    if (frames.length === 0 || !frames[0].projectID) {
-      return { isOwner: false };
+    if (records.length > 0) {
+      return {
+        isOwner: true,
+        projectId: records[0].projectId || undefined,
+      };
     }
 
-    const projectId = frames[0].projectID;
-    const isOwner = await verifyProjectOwnership(projectId, userEmail);
-    return { isOwner, projectId };
+    return { isOwner: false };
   } catch (err) {
     console.error("[AuthSecurity] Error verifying frame ownership:", err);
     return { isOwner: false };
@@ -84,48 +121,43 @@ export async function verifyFrameOwnership(
 }
 
 /**
- * Returns a standardized error response without leaking sensitive database or stack details.
+ * Standardized safe error responder to avoid credential or database leakage.
  */
 export function safeErrorResponse(
-  clientMessage: string,
+  message: string,
   status: number = 500,
-  internalError?: unknown
-) {
-  if (internalError) {
-    console.error(`[API Error ${status}]:`, internalError);
+  err?: unknown
+): NextResponse {
+  if (err && process.env.NODE_ENV !== "production") {
+    console.error(`[API Error ${status}]:`, err);
   }
-  return NextResponse.json({ error: clientMessage }, { status });
+  return NextResponse.json({ error: message }, { status });
 }
-
-// -------------------------------------------------------------
-// Common Input Validation Schemas (Zod)
-// -------------------------------------------------------------
 
 export const ProjectIdSchema = z
   .string()
   .trim()
-  .min(1, "Project ID cannot be empty")
-  .max(120, "Project ID exceeds maximum length of 120 characters");
+  .min(1, "Project ID is required")
+  .max(120, "Project ID is too long")
+  .regex(/^[a-zA-Z0-9_-]+$/, "Project ID contains invalid characters");
 
 export const FrameIdSchema = z
   .string()
   .trim()
-  .min(1, "Frame ID cannot be empty")
-  .max(120, "Frame ID exceeds maximum length of 120 characters");
+  .min(1, "Frame ID is required")
+  .max(120, "Frame ID is too long")
+  .regex(/^[a-zA-Z0-9_-]+$/, "Frame ID contains invalid characters");
 
 export const FilesMapSchema = z
-  .record(z.string().max(256), z.string())
-  .refine((files) => Object.keys(files).length <= 500, {
-    message: "Files payload exceeds maximum limit of 500 files",
-  })
+  .record(
+    z.string().max(255, "File path is too long"),
+    z.string().max(2 * 1024 * 1024, "Individual file content exceeds maximum 2MB size")
+  )
   .refine(
-    (files) => {
-      let totalBytes = 0;
-      for (const [key, val] of Object.entries(files)) {
-        totalBytes += key.length + (typeof val === "string" ? val.length : 0);
-        if (totalBytes > 10 * 1024 * 1024) return false; // 10MB limit
-      }
-      return true;
-    },
-    { message: "Total files payload size exceeds 10MB limit" }
+    (files) => Object.keys(files).length <= 500,
+    "Project exceeds maximum limit of 500 files"
+  )
+  .refine(
+    (files) => Object.values(files).reduce((acc, str) => acc + str.length, 0) <= 10 * 1024 * 1024,
+    "Total project files size exceeds 10MB limit"
   );

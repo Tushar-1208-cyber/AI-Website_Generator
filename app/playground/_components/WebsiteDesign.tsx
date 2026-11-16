@@ -278,6 +278,7 @@ function WebsiteDesign({
   const [internalActivePreviewPage, setInternalActivePreviewPage] = useState<string>("index.html");
   const [internalShowExportModal, setInternalShowExportModal] = useState<boolean>(false);
   const [internalShowDeployModal, setInternalShowDeployModal] = useState<boolean>(false);
+  const [internalShowBrowserDrawer, setInternalShowBrowserDrawer] = useState<boolean>(false);
   const [selectedElementInfo, setSelectedElementInfo] = useState<SelectedElementInfo | null>(null);
   const [isFixingErrors, setIsFixingErrors] = useState<boolean>(false);
   const [lastFixSummary, setLastFixSummary] = useState<string | null>(null);
@@ -305,7 +306,7 @@ function WebsiteDesign({
   const device = deviceProp ?? internalDevice;
   const activePreviewPage = activePreviewPageProp ?? internalActivePreviewPage;
   const isInspectMode = isInspectModeProp ?? false;
-  const showBrowserDrawer = showBrowserDrawerProp ?? false;
+  const showBrowserDrawer = showBrowserDrawerProp !== undefined ? showBrowserDrawerProp : internalShowBrowserDrawer;
 
   const showExportModal = showExportModalProp ?? internalShowExportModal;
   const showDeployModal = showDeployModalProp ?? internalShowDeployModal;
@@ -808,7 +809,13 @@ function WebsiteDesign({
         <BrowserAgentDrawer
           filesMap={filesMap}
           activePage={activePreviewPage}
-          onClose={() => onBrowserDrawerToggle?.()}
+          onClose={() => {
+            if (onBrowserDrawerToggle) {
+              onBrowserDrawerToggle();
+            } else {
+              setInternalShowBrowserDrawer(false);
+            }
+          }}
         />
       )}
 

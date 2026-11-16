@@ -281,6 +281,7 @@ function WebsiteDesign({
   const [selectedElementInfo, setSelectedElementInfo] = useState<SelectedElementInfo | null>(null);
   const [isFixingErrors, setIsFixingErrors] = useState<boolean>(false);
   const [lastFixSummary, setLastFixSummary] = useState<string | null>(null);
+  const [fixErrorMessage, setFixErrorMessage] = useState<string | null>(null);
   const [previewRefreshKey, setPreviewRefreshKey] = useState<number>(0);
 
   const handleIframeLoad = (e: React.SyntheticEvent<HTMLIFrameElement>) => {
@@ -466,16 +467,64 @@ function WebsiteDesign({
     return bundled;
   }, [filesMap, activePreviewPage, isInspectMode]);
 
-  const handleAutoFix = () => {
-    if (detectedIssues.length === 0) return;
+  const handleAutoFix = async () => {
+    if (isFixingErrors || detectedIssues.length === 0) return;
     setIsFixingErrors(true);
-    const res = autoFixErrors(filesMap, detectedIssues);
-    const serialized = serializeMultiFiles(res.fixedFilesMap);
-    onCodeChange?.(serialized);
-    handleCommit(serialized);
-    setIsFixingErrors(false);
-    setLastFixSummary(`Repaired ${res.fixedCount} code & link issues cleanly.`);
-    setTimeout(() => setLastFixSummary(null), 4000);
+    setFixErrorMessage(null);
+
+    try {
+      const response = await fetch("/api/ai-fix", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          filesMap,
+          issues: detectedIssues,
+          projectId,
+        }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        const serverError = errorData?.error || "AI repair request failed";
+        console.warn("[AI Fix] API call returned non-200, falling back to local repair engine:", serverError);
+
+        // Deterministic fallback execution
+        const fallbackRes = autoFixErrors(filesMap, detectedIssues);
+        const serialized = serializeMultiFiles(fallbackRes.fixedFilesMap);
+        onCodeChange?.(serialized);
+        handleCommit(serialized);
+        setLastFixSummary(`Repaired ${fallbackRes.fixedCount} code issue(s) cleanly (code engine fallback).`);
+        setTimeout(() => setLastFixSummary(null), 5000);
+        return;
+      }
+
+      const data = await response.json();
+      if (data.success && data.fixedFilesMap) {
+        const serialized = serializeMultiFiles(data.fixedFilesMap);
+        onCodeChange?.(serialized);
+        handleCommit(serialized);
+        setLastFixSummary(data.summary || `Repaired ${data.fixedCount || detectedIssues.length} issue(s) cleanly.`);
+        setTimeout(() => setLastFixSummary(null), 5000);
+      } else {
+        throw new Error(data?.error || "Repair output was invalid.");
+      }
+    } catch (err: unknown) {
+      console.error("[AI Fix] Error repairing code:", err);
+      // Deterministic fallback execution on network or unexpected error
+      try {
+        const fallbackRes = autoFixErrors(filesMap, detectedIssues);
+        const serialized = serializeMultiFiles(fallbackRes.fixedFilesMap);
+        onCodeChange?.(serialized);
+        handleCommit(serialized);
+        setLastFixSummary(`Repaired ${fallbackRes.fixedCount} code issue(s) cleanly (offline engine).`);
+        setTimeout(() => setLastFixSummary(null), 5000);
+      } catch {
+        const msg = err instanceof Error ? err.message : "Failed to repair code.";
+        setFixErrorMessage(`Repair failed: ${msg}. Your original code has been preserved.`);
+      }
+    } finally {
+      setIsFixingErrors(false);
+    }
   };
 
   const handleCloseExportModal = () => {
@@ -535,6 +584,8 @@ function WebsiteDesign({
         onFixAll={handleAutoFix}
         isFixing={isFixingErrors}
         lastFixSummary={lastFixSummary}
+        errorMessage={fixErrorMessage}
+        onDismissError={() => setFixErrorMessage(null)}
       />
 
       {/* Workspace Content */}
@@ -992,14 +1043,6 @@ function WebsiteDesign({
           onClose={() => onCloseModal?.()}
         />
       )}
-
-      {/* Error Monitor Banner */}
-      <ErrorMonitorBanner
-        issues={detectedIssues}
-        onFixAll={handleAutoFix}
-        isFixing={isFixingErrors}
-        lastFixSummary={lastFixSummary}
-      />
     </div>
   );
 }

@@ -33,6 +33,19 @@ function getLineNumber(content: string, index: number): number {
 }
 
 /**
+ * Masks comments, script blocks, and style blocks with whitespace to avoid false positives while preserving line numbers.
+ */
+function maskCommentsAndScripts(content: string): string {
+  const noComments = content.replace(/<!--[\s\S]*?-->/g, (m) => m.replace(/[^\n]/g, " "));
+  const noScripts = noComments.replace(/<script\b[^>]*>([\s\S]*?)<\/script>/gi, (m, body) =>
+    m.replace(body, body.replace(/[^\n]/g, " "))
+  );
+  return noScripts.replace(/<style\b[^>]*>([\s\S]*?)<\/style>/gi, (m, body) =>
+    m.replace(body, body.replace(/[^\n]/g, " "))
+  );
+}
+
+/**
  * AI Error Detection Engine: Deep static analysis scanner for syntax, structure, JSON, CSS & links
  */
 export function detectErrors(filesMap: Record<string, string>): DetectedIssue[] {
@@ -190,13 +203,49 @@ export function detectErrors(filesMap: Record<string, string>): DetectedIssue[] 
       }
     }
 
-    // 6. Check for unclosed HTML tags
-    const structuralTags = ["div", "section", "article", "main", "nav", "header", "footer", "form"];
+    // 6. Check for truncated tags and unclosed structural HTML tags
+    const sanitizedHtml = maskCommentsAndScripts(content);
+
+    // 6a. Check if generation cut off mid-tag at the end of the file
+    const trailingTruncatedMatch = content.trim().match(/<([a-z0-9-]+)(?:\s+[^>]*)?$/i);
+    if (trailingTruncatedMatch) {
+      const rawTag = trailingTruncatedMatch[0];
+      const tagName = trailingTruncatedMatch[1].toLowerCase();
+      const lineNum = getLineNumber(content, content.lastIndexOf(rawTag));
+
+      issues.push({
+        id: `${filePath}-truncated-tag`,
+        filePath,
+        type: "unclosed_tag",
+        message: `HTML syntax error: Incomplete or truncated <${tagName}> tag at end of file.`,
+        severity: "critical",
+        lineNumber: lineNum,
+        snippet: rawTag.slice(0, 60),
+        recommendation: `Complete and close the truncated <${tagName}> element.`,
+      });
+    }
+
+    // 6b. Check structural tags with comments/scripts masked to prevent false positives
+    const structuralTags = [
+      "div",
+      "section",
+      "article",
+      "main",
+      "nav",
+      "header",
+      "footer",
+      "form",
+      "aside",
+      "table",
+      "ul",
+      "ol",
+    ];
     for (const tag of structuralTags) {
-      const openMatches = Array.from(content.matchAll(new RegExp(`<${tag}[\\s>]`, "gi")));
-      const closeMatches = Array.from(content.matchAll(new RegExp(`</${tag}>`, "gi")));
+      const openMatches = Array.from(sanitizedHtml.matchAll(new RegExp(`<${tag}[\\s>]`, "gi")));
+      const closeMatches = Array.from(sanitizedHtml.matchAll(new RegExp(`</${tag}>`, "gi")));
 
       if (openMatches.length > closeMatches.length) {
+        const diff = openMatches.length - closeMatches.length;
         const lastOpen = openMatches[openMatches.length - 1];
         const lineNum = lastOpen ? getLineNumber(content, lastOpen.index ?? 0) : 1;
 
@@ -204,11 +253,11 @@ export function detectErrors(filesMap: Record<string, string>): DetectedIssue[] 
           id: `${filePath}-tag-${tag}`,
           filePath,
           type: "unclosed_tag",
-          message: `HTML structure error: Found ${openMatches.length} open <${tag}> tags but only ${closeMatches.length} closing </${tag}> tags.`,
+          message: `HTML structure error: Found ${openMatches.length} open <${tag}> tags but only ${closeMatches.length} closing </${tag}> tags (${diff} unclosed).`,
           severity: "critical",
           lineNumber: lineNum,
           snippet: lastOpen ? lastOpen[0] : `<${tag}>`,
-          recommendation: `Add missing closing </${tag}> tag to properly close the element.`,
+          recommendation: `Add ${diff} missing closing </${tag}> tag(s) to properly close element(s).`,
         });
       }
     }
@@ -264,16 +313,57 @@ export function autoFixErrors(
       repairLogs.push(`Added alt="Visual content illustration" attribute to <img> in ${issue.filePath}`);
       fixedCount++;
     } else if (issue.type === "unclosed_tag") {
-      const tagMatch = issue.message.match(/<([a-z0-9]+)>/i);
-      const tagName = tagMatch ? tagMatch[1] : "div";
-
-      if (content.includes("</body>")) {
-        content = content.replace("</body>", `</${tagName}>\n</body>`);
-      } else {
-        content += `\n</${tagName}>`;
+      // 1. Repair truncated tag at EOF if present
+      const trailingTruncatedMatch = content.trim().match(/<([a-z0-9-]+)(?:\s+[^>]*)?$/i);
+      if (trailingTruncatedMatch) {
+        const rawTag = trailingTruncatedMatch[0];
+        const tagName = trailingTruncatedMatch[1].toLowerCase();
+        let fixedTag = rawTag;
+        const quoteCount = (fixedTag.match(/"/g) || []).length;
+        if (quoteCount % 2 !== 0) {
+          fixedTag += '"';
+        }
+        fixedTag += `></${tagName}>`;
+        content = content.replace(rawTag, fixedTag);
+        repairLogs.push(`Repaired truncated <${tagName}> tag in ${issue.filePath}`);
+        fixedCount++;
       }
-      repairLogs.push(`Appended missing closing </${tagName}> tag in ${issue.filePath}`);
-      fixedCount++;
+
+      // 2. Extract tag name from issue message or scan structural tags
+      const tagMatch = issue.message.match(/<([a-z0-9-]+)>/i);
+      const targetTags = tagMatch
+        ? [tagMatch[1].toLowerCase()]
+        : ["div", "section", "article", "main", "nav", "header", "footer", "form", "aside", "table", "ul", "ol"];
+
+      for (const tagName of targetTags) {
+        const sanitized = maskCommentsAndScripts(content);
+        const openCount = (sanitized.match(new RegExp(`<${tagName}[\\s>]`, "gi")) || []).length;
+        const closeCount = (sanitized.match(new RegExp(`</${tagName}>`, "gi")) || []).length;
+        const diff = openCount - closeCount;
+
+        if (diff > 0) {
+          const closingTags = Array(diff).fill(`</${tagName}>`).join("\n");
+          if (content.includes("</body>")) {
+            content = content.replace("</body>", `${closingTags}\n</body>`);
+          } else {
+            content = content + "\n" + closingTags;
+          }
+          repairLogs.push(`Appended ${diff} missing closing </${tagName}> tag(s) in ${issue.filePath}`);
+          fixedCount += diff;
+        }
+      }
+
+      // 3. Ensure </body> and </html> exist if <!DOCTYPE or <html is present
+      if (/<html[\s>]/i.test(content) && !/<\/body>/i.test(content)) {
+        content += "\n</body>";
+        repairLogs.push(`Added missing </body> tag in ${issue.filePath}`);
+        fixedCount++;
+      }
+      if (/<html[\s>]/i.test(content) && !/<\/html>/i.test(content)) {
+        content += "\n</html>";
+        repairLogs.push(`Added missing </html> tag in ${issue.filePath}`);
+        fixedCount++;
+      }
     } else if (issue.type === "css_syntax") {
       const openBraces = (content.match(/\{/g) || []).length;
       const closeBraces = (content.match(/\}/g) || []).length;

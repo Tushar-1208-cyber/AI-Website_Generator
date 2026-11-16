@@ -419,6 +419,7 @@ function PlaygroundPage() {
           onHtmlPagesDetected={setHtmlPages}
           isInspectMode={isInspectMode}
           showBrowserDrawer={showBrowserDrawer}
+          onBrowserDrawerToggle={() => setShowBrowserDrawer((prev) => !prev)}
           showExportModal={showExportModal}
           onExportModalClose={() => setShowExportModal(false)}
           showDeployModal={showDeployModal}
